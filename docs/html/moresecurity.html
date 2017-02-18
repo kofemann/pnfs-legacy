@@ -1,0 +1,100 @@
+<html>
+<head><title>Pnfs Security Enhancements</title>
+</head>
+<body bgcolor="#dddddd">
+<h1>Pnfs Security Enhancements</h1>
+<h3>Disabling the <em>remove</em> and <em>move</em> nfs operation</h3>
+<blockquote>
+Pnfs, starting with V3.1.9, allows to disable the remove 
+and/or move nfs operation of the content of 
+directories configured as such.
+<ul>
+<li>Once disabled, <em>remove,move</em> will be denied on 
+    the content of the corresponding directory regardless
+    of the host or uid this request has been coming from.
+    Not even root on localhost can perform those operations.
+<li>See <em>Inheritance of security properties</em>.
+<li>Other nfs operation are not affected by this property.
+<li>The disable operation can only be activated/deactivated
+    on the pnfs server itself as the root user.
+</ul>
+</blockquote>
+<h3>Disabling all nfs directory operations on nontrusted client hosts</h3>
+<blockquote>
+Pnfs, starting with V3.1.9, allows to disable all nfs operations
+on directories (except lookup) from nontrusted hosts.
+<ul>
+<li>Once enabled, create,move and remove operations will be 
+    allowed only by nfs client hosts assigned a trust level
+    above 13.
+<li>See <em>Inheritance of security properties</em>.
+<li>Nfs operation on files (setattr,..) are not affected by this property.
+<li>The descibed operation can only be activated/deactivated
+    on the pnfs server itself as the root user.
+</ul>
+</blockquote>
+<h3>Inheritance of security properties</h3>
+<blockquote>
+Security properties might be inherited by subdirectories of 
+datasets if the compile time flags MD_FLAGS_INHERIT is set.
+Inheriting security properties might become rather confusing because
+<blockquote><strong>
+    The newly create object inherits the properties of its
+    parent directory in the moment the object is created.
+    Subsequent changes of the properties of the parent 
+    directory don't affect the properties of the child object.
+</strong>
+</blockquote>
+</blockquote>
+<h3>Command Reference</h3>
+<blockquote>
+The <em>sclient</em> pnfs tool is used to set/unset the properties 
+decribed above. <em>sclient</em> can only be issued on the pnfs server
+itself as root user. The pnfsid is used to descibe the object
+to be modified, therefore pnfs doesn't need to be mounted.
+For convenience we provide a script (<em>pflags</em>) which first
+maps a full pathname into a pnfsId which is then passed to <em>sclient</em>.
+This script needs the pnfs filesystem to do the mapping.
+<p>
+<table border=0 cellspacing=4 cellpadding=4 width="90%">
+<tr>
+<th bgcolor="#bbbbff" align=left>
+   sclient flag &lt;shmid&gt; &lt;pnfsId&gt; remove|move|security  on|off
+</td>
+<tr>
+<th bgcolor="#bbbbff" align=left>
+   plags &lt;fullPathName&gt; remove|move|security  on|off   
+</td>
+</tr>
+</table>
+<table border=0 cellspacing=4 cellpadding=4>
+<tr>
+<th bgcolor="#bbbbff">Property</th>
+<th bgcolor="#bbbbff">Default</th>
+<th bgcolor="#bbbbff">Description</th>
+</tr>
+<tr>
+<td bgcolor="#eeeeff" align=center>remove</td>
+<td bgcolor="#eeeeff" align=center>on</td>
+<td bgcolor="#eeeeff" align=center>
+nfs remove operation (dis)allowed within this directory
+</td>
+</tr>
+<tr>
+<td bgcolor="#eeeeff" align=center>move</td>
+<td bgcolor="#eeeeff" align=center>on</td>
+<td bgcolor="#eeeeff" align=center>
+nfs move operation (dis)allowed within this directory
+</td>
+</tr>
+<tr>
+<td bgcolor="#eeeeff" align=center>security</td>
+<td bgcolor="#eeeeff" align=center>off</td>
+<td bgcolor="#eeeeff" align=center>
+on : nfs operation within this directory only allowed from trusted hosts.
+</td>
+</tr>
+</table>
+</blockquote>
+</body>
+</html>

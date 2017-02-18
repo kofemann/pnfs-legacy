@@ -1,0 +1,169 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+setup=/usr/etc/pnfsSetup
+#
+usage() {
+   echo " Usage : mdcreate <databaseID> <dbFileName> "
+   return 0
+}
+
+#
+#  check for existence of our setup
+#
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find setup file $setup "
+   exit 1
+fi
+#
+. $setup
+#
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup " ; exit 1 ; fi
+
+tools=$pnfs/tools
+mbin=$pnfs/tools
+
+if [ ! -f $mbin/special ] ; then
+  echo " Can't find platform file : $mbin/special "
+  exit 1
+fi
+. $mbin/special
+if [ $? -ne 0 ] ; then exit 1 ; fi
+#
+#
+md2=$tools/md2tool
+md3=$tools/md3tool
+#
+# ------------------------------------------------------------------
+#
+#
+pmkdir() {
+      
+   id=`$md3 mkdir $dbPath $1 $2 0 1 700`
+   if [ $? -ne 0 ] ; then echo " Couldn't create $2 on $1 " ; exit 1 ; fi
+   echo "$id" | cut -d" " -f 4
+   return 0
+}
+ptouch() {
+
+   id=`$md3 mkfile $dbPath $1 $2 0 1 700`
+   if [ $? -ne 0 ] ; then echo " Couldn't create $2 on $1 " ; exit 1 ; fi
+   echo "$id" | cut -d" " -f 4
+   return 0
+}
+# ----------------------------------------------------------------------
+
+create_admin() {
+
+ if [ $# != 1 ] ; then
+   echo " USAGE mdcreate admin <dbPath>"
+   exit 1 ;
+ fi
+dbPath=$1
+db=0
+fsid=`$md3 getid $dbPath /$db/root/fs`
+if [ $? -ne 0 ] ; then echo " Root not found " ; exit 1 ; fi
+
+tmpfile=/tmp/ttt-$$
+cat >$tmpfile <<!
+
+          Current filesystem layout
+        ===============================
+
+/0/root/fs +--  admin -+- etc -+- exports   --- trusted -- <hostips>
+           |                   |
+           |                   +- config    --- tools
+           +--- usr   
+
+!
+fsid=`echo $fsid | cut -d" " -f 1` ; echo " fs      $fsid"
+adminid=`pmkdir $fsid admin`       ; echo " admin   $adminid"
+usrid=`pmkdir $fsid usr`           ; echo " usr     $usrid"
+etcid=`pmkdir $adminid etc`        ; echo " etc     $etcid"
+exportsid=`pmkdir $etcid exports`  ; echo " exports $exportsid"
+configid=`pmkdir $etcid config`    ; echo " config  $configid"
+trustedid=`pmkdir $exportsid trusted` ;echo " trusted $trustedid "
+toolsid=`pmkdir $configid tools`      ; echo " tools   $toolsid "
+
+
+fileid=`ptouch $fsid README` ; 
+echo " README    $fileid"
+$md3 copy $dbPath $tmpfile $fileid
+if [ $? -ne 0 ] ; then  echo " Failed : $md3 copy $tmpfile $fileid" ; fi
+
+cat >$tmpfile <<!
+/admin     /0/root/fs/admin     0   nooptions
+/fs        /0/root/fs           0   nooptions
+!
+fileid=`ptouch $exportsid 127.0.0.1` ; 
+echo " 127.0.0.1    $fileid"
+$md3 copy $dbPath $tmpfile $fileid
+if [ $? -ne 0 ] ; then  echo " Failed : $md3 copy $tmpfile $fileid" ; fi
+
+echo 15 >$tmpfile
+fileid=`ptouch $trustedid 127.0.0.1`
+echo " 127.0.0.1    $trustedid"
+$md3 copy $dbPath $tmpfile $fileid
+if [ $? -ne 0 ] ; then  echo " Failed : $md3 copy $tmpfile $fileid" ; fi
+
+rm -f $tmpfile
+return 0
+}
+makeNewDB() {
+#-------------------
+if [ $# -ne 2 ] ; then
+   echo " Fatal : makeNewDB : wrong argument count "
+   exit 1
+fi
+#
+dbID=$1
+dbName=$2
+#
+if [ -f $dbName ] ; then
+   echo " Database file $dbName DOES already exist "
+   echo " Please remove file first "
+   exit 1
+fi
+echo " Creating database with ID $dbID on file $dbName "
+$md2 none create $dbName  $dbID
+#
+if [ $? -ne 0 ] ; then exit 1 ; fi
+#
+#  100 -- root +-- Mountpoints -- general -+- fs
+#
+#
+##VP
+   touch $dbName
+##VP
+   id100=`$md2 $dbName mkdir 100 0 | cut -d" " -f1`
+   if [ -z "$id100" ] ; then exit 1 ; fi
+   root=`$md2 $dbName mkdir $id100 root | cut -d" " -f1`
+   if [ -z "$root" ] ; then exit 1 ; fi
+   echo " Root    $root"
+   fs=`$md2 $dbName mkdir $root fs | cut -d" " -f1`
+   if [ -z "$fs" ] ; then exit 1 ; fi
+   echo " FS      $fs"
+
+}
+
+case $1 in 
+    admin) shift ; create_admin $* ; exit $? ;;
+    root)  shift ; makeNewDB    $* ; exit $? ;;
+    *)
+       echo " Usage : mdcreate admin" 
+       ;;
+esac 

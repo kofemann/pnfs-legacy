@@ -1,0 +1,39 @@
+<html>
+<head><title>The pnfs file remove command</title>
+</head>
+<body bgcolor=white>
+<h1>The Pnfs Remove File command</h1>
+Because Pnfs was designed to work together with
+any HSM system, we have to inform such a system
+whenever a file is removed from Pnfs.
+This is done asynchronously.
+Whenever a file is removed, which holds information
+in any level other then zero, this information is
+copied to the local filesystem of the pnfs server.
+The destination of that copy operation is specified
+with the 'trash' variable in the /usr/etc/pnfsSetup 
+file.
+$trash has to contain subdirectories for the
+pnfs file level you are interested in.
+The filename which will appear in $trash/&lt;n&gt;
+will be the pnfsID of the removed file.
+To find a fileentry in $trash/&lt;n&gt; after removing
+a file from pnfs two conditions must be true.
+<ul>
+<li>Level &lt;n&gt; of that fileentry must contain data.
+<li>$trash/&lt;n&gt; must exist.
+</ul>
+You are responsible for removing the entries in $trash/&lt;n&gt;
+after using the information.
+<!--
+<h4>Possible Problem</h4>
+Currently I'm creating and modifing the files in 
+$trash/&lt;n&gt; directly. Because this procedure is
+not atomic, it may create conditions where
+there are empty entries in those directories for a short 
+time interval.
+This could be solved by creating the file somewhere else and
+moving the name into $trash/&lt;n&gt;.
+-->
+</body>
+</html> 

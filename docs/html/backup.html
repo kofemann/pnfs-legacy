@@ -1,0 +1,47 @@
+<html>
+<head><title>Concurrent Backup</title></head>
+<body>
+<h1>Modes of Operation</h1>
+<table border=1>
+<tr><td><th>Normal Mode</th><th>Backup Mode</th><th>Recover Mode</th>
+<tr><th>Read</th>
+<td>
+Record taken from DB.
+</td>
+<td>
+Record taken from DBB, if not found, taken from DB.
+</td>
+<td>
+If record found in DBB, copy it to DB, remove it from DBB and
+send it back.<br>
+If record not found in DBB, take it from DB.
+</td>
+</tr>
+<tr><th>Write</th>
+<td>
+Record written to DB.
+</td>
+<td>
+Record written to DBB.
+</td>
+<td>
+Write it to DB and remove it from DBB.
+</td>
+</tr>
+<tr><th>Delete</th>
+<td>
+Record deleted from DB.
+</td>
+<td>
+Mark record as delete in DBB.
+</td>
+<td>
+If record is not found in DBB remove it from DB.
+If record found in DBB and not marked as 'deleted' remove it from DBB and
+possibly remove if from DB. If record found in DBB but is marked 'deleted'
+remove it from DBB and DB and return error 'record not found'.
+</td>
+</tr>
+</table>
+</body>
+</html>

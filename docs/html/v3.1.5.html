@@ -1,0 +1,160 @@
+<html>
+<head><title>Version 3.1.5</title>
+</head>
+<body bgcolor=white>
+<h1>The Pnfs Version 3.1.5</h1>
+<hr>
+<h3>News</h3>
+<blockquote>
+<ul>
+<li><a href=#comp>Compatibility</a>
+<li><a href=#gids>The list of groupids(newgrp) is honoured.</a>
+<li><a href=#patches>Patches.</a>
+<li><a href=#newcom><strong>pcpattr</strong> : new command to move attributes.</a>
+<li><a href=#bugs>Fixed Bugs.</a>
+<li><a href=#rem>Performance Remark.</a>
+</ul>
+</blockquote>
+<hr>
+<a name=comp>
+<h3>Compatibility</h3>
+<blockquote>
+No problem coming from 3.1.3/4. For earlier versions consult
+<a href=v3.1.3.html#comp>V3.1.3</a>.
+</blockquote>
+<hr>
+<a name=gids>
+<h3>The list of groupids(newgrp) is honoured.</h3>
+<blockquote>
+All operations are checked against all groups the user belongs to.
+</blockquote>
+<hr>
+<a name=patches>
+<h3>Patches.</h3>
+<blockquote>
+<ul>
+<li>Patch A : debug statement removed. In addition, the
+    dbserverLevel variable in /usr/etc/pnfsSetup should be
+    set to 6 (dbserverLevel=6) otherwise all remove calles
+    will produce one line of output in $dbserverLog.  
+<li>Patch B & C: The commands <strong>.(getattr)(&lt;pnfsId&gt;)</strong> and
+    <strong>.(pset)(&lt;pnfsId&gt;)(attr)(&lt;level&gt;)(&lt;attrString&gt;)</strong> have
+    been introduced to allow a 1 to 1 copy file attributes.
+    <br>
+<li>Patch D : .(access)(&lt;pnfsId&gt;)(&lt;level&gt;)
+        has been renamed to .(puse)(&lt;pnfsId&gt;)(&lt;level&gt;)
+        and allows to read and write level 1-7 on NoIO mounted
+        filesystems as well.
+</ul>
+<h4>.(getattr)(&lt;pnfsId&gt;)</h4>
+The command returns a one line string for a directory and a 8 line text
+of a file, describing the attributes of the directory or all file levels.
+The strings are a ':' separated list of 
+the mode(octal), uid(dec), gid(dec), and the atime,mtime,ctime in hex.
+This values can be used unchanged to set the appropiate 
+values of a different file using the pset-attr command.
+<h4>.(pset)(&lt;pnfsId&gt;)(attr)(&lt;level&gt;)(&lt;attrString&gt;)</h4>
+The command can be used to set the attributes of a directory or a file level
+to the values of
+a different directory or file. 
+The &lt;attrString&gt; has to have the same format as
+the return value of .(getattr)(&lt;pnfsId&gt;).
+<p>Note : When using this command together with 'touch' on solaris
+the 'touch -a ...' option must be used. Otherwise the date of the
+file is set to the current date and not to the date specified
+with the pset command.
+<p>
+<strong>These two commands are mainly used by the <em>pcpattr</em>
+command which copies all attributes of a directory or all attributes
+of all file levels to a different directory of file.</strong>
+</blockquote>
+<hr>
+<a name=newcom>
+<h3><strong>pcpattr</strong> : new command to copy attributes.</h3>
+<blockquote>
+<pre>
+pcpattr &lt;sourceFile&gt;      &lt;destinationFile&gt;
+pcpattr &lt;sourceDirectory&gt; &lt;destinationDirectory&gt;
+</pre>
+<strong>pcpattr</strong> is able to copy attributes of a directory
+or file object to another directory or file object.
+Source and destination objects must be of the same type.
+The attributes are the <em>User ID (uid)</em>, the <em>Group ID (gid)</em>,
+<em>all timestamps (ctime,mtime,atime)</em> and the <em>access modes</em>.
+The filesize is not modified.
+<br>
+<strong>The <em>pcpattr</em> command should only be used by the
+root user and from a <em>trusted pnfs host</em>. Otherwise 
+the root owned levels won't change the attributes and the 
+results are not predictable.</strong>
+<p><strong>Example :</strong><br>
+<blockquote>
+There are two regular files in the /pnfs/fs/local/usr/patrick 
+subdirectory <em>fileA</em> and <em>fileB</em>.
+These file have different modification timestamps, owners
+and access modes.
+<pre>
+elchtop:/pnfs/fs/local/usr/patrick # <strong>pls</strong>
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 fileA
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(1)(fileA)
+-rwxrwxrwx   1 root     users           0 Aug  1 19:30 .(use)(2)(fileA)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(3)(fileA)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(4)(fileA)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(5)(fileA)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(6)(fileA)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(7)(fileA)
+-rw-r--r--   1 amanda   users           0 Aug  1 19:31 fileB
+-rw-r--r--   1 amanda   users           0 Aug  1 19:31 .(use)(1)(fileB)
+-rw-r--r--   1 amanda   users           0 Aug  1 19:31 .(use)(2)(fileB)
+-rw-r--r--   1 amanda   users           0 Aug  1 19:31 .(use)(3)(fileB)
+-rw-------   1 root     root            0 Aug  1 19:31 .(use)(4)(fileB)
+-rw-------   1 root     root            0 Aug  1 19:31 .(use)(5)(fileB)
+-rw-------   1 root     root            0 Aug  1 19:31 .(use)(6)(fileB)
+-rw-r--r--   1 amanda   users           0 Aug  1 19:31 .(use)(7)(fileB)
+
+elchtop:/pnfs/fs/local/usr/patrick # <strong>pcpattr fileA fileB</strong>
+
+elchtop:/pnfs/fs/local/usr/patrick # <strong>pls</strong>
+
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 fileA
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(1)(fileA)
+-rwxrwxrwx   1 root     users           0 Aug  1 19:30 .(use)(2)(fileA)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(3)(fileA)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(4)(fileA)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(5)(fileA)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(6)(fileA)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(7)(fileA)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 fileB
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(1)(fileB)
+-rwxrwxrwx   1 root     users           0 Aug  1 19:30 .(use)(2)(fileB)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(3)(fileB)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(4)(fileB)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(5)(fileB)
+-rw-------   1 root     root            0 Aug  1 19:30 .(use)(6)(fileB)
+-rwxrwxrwx   1 patrick  users           0 Aug  1 19:30 .(use)(7)(fileB)
+</pre>
+After the <em>pcpattr</em> command finished, <em>fileB</em>
+has exactly the same attributes as <em>fileB</em>.
+</blockquote> 
+</blockquote>
+<hr>
+<a name=bugs>
+<h3>Solved Bugs.</h3>
+<blockquote>
+<ul>
+<li>Set attributes (chmod, chgrp ... ) no longer removes tag contents.
+<li>Group permissions are honoured now.
+</ul>
+</blockquote>
+<hr>
+<a name=rem>
+<h3>Performance Remark.</h3>
+<blockquote>
+For security reasons, all operations performed as 'root' accesses the
+'admin' database to check privileges of the 
+perticular client host. Therefore the 'root' user should only perform
+administration tasks and avoid intensive i/o operations.
+</blockquote>
+<hr>
+</body>
+</html> 

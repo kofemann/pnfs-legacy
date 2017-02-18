@@ -1,0 +1,88 @@
+#!/bin/sh
+#set -x
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+setup=/usr/etc/pnfsSetup
+tool=md2tool
+nfstype=gdbm
+#
+#  check for existence of our setup
+#@
+#if [ ! -f $setup ] ; then
+#   echo " Sorry, can't find setup file $setup "
+#   exit 1
+#fi
+#
+#dbRoot=`awk -F= '{ if( $1=="database" )print $2 }' $setup`
+#if [ -z "$dbRoot" ] ; then 
+#  echo " No database entry in $setup "
+#  exit 1
+#fi
+#`
+#
+#    usage : makeNewDB <dbid> <dbName>
+#
+makeNewDB() {
+#-------------------
+if [ $# -ne 2 ] ; then
+   echo " Fatal : makeNewDB : wrong argument count "
+   exit 1
+fi
+#
+dbID=$1
+dbName=$2
+#
+if [ -f $dbName ] ; then
+   echo " Database file $dbName DOES already exist "
+   echo " Please remove file first "
+   exit 1
+fi
+echo " Creating database with ID $dbID on file $dbName "
+$tool none create $dbName  $dbID
+#
+if [ $? -ne 0 ] ; then exit 1 ; fi
+#
+#  100 -- root +-- Mountpoints -- general -+- fs
+#
+#
+   id100=`$tool $dbName mkdir 100 0 | cut -d" " -f1`
+   if [ -z "$id100" ] ; then exit 1 ; fi
+   root=`$tool $dbName mkdir $id100 root | cut -d" " -f1`
+   if [ -z "$root" ] ; then exit 1 ; fi
+   echo " Root    $root"
+   fs=`$tool $dbName mkdir $root fs | cut -d" " -f1`
+   if [ -z "$fs" ] ; then exit 1 ; fi
+   echo " FS      $fs"
+
+}
+usage() {
+   echo " USAGE : md new <dbID> <dbName>"
+   exit 1
+}
+#
+if [ "$1" = "new" ] ; then
+
+    if [ $# -lt 3 ] ; then usage ; exit 1 ; fi
+    makeNewDB $2 $3
+
+#
+else
+#   shift
+#   $tool $db $*
+    usage
+fi
+

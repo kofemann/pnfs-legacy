@@ -1,0 +1,63 @@
+<html>
+<head><title>I/O in pnfs</title>
+</head>
+<body bgcolor=white>
+<h1>I/O versus no I/O</h1>
+Because Pnfs was designed to distribute a namespace,
+regular I/O operations had to be disabled in some way.
+The only meaningful NFS2 returncode which could indicate
+this behaviour is NFS_IO_ERROR. This nfs error code is
+returned whenever a read or write access is performed on
+a fileentry which is not enabled for I/O. On the other hand
+it would be nice to have the possibility to have
+regular files in the filesystem for steering and informational
+purposes.<em>( Config files behind a <a href=worms.html>wormhole</a>
+or README files in some user directories.)</em>
+There are two ways to manipulate the I/O behaviour of 
+a file.
+<h4>I/O behaviour by 'export' options</h4>
+<blockquote>
+The third item in the pnfs exports files
+in /pnfs/fs/admin/etc/exports/&lt;hostIP&gt; is an integer
+decribing the I/O behaviour of the particular mountpoint.
+The <strong>30</strong> is the standard option for
+hosts which should mainly see the I/O disabled filesystem.
+The <strong>0</strong> is the standard option for 
+hosts which have to do administrative tasks.
+The former disallows I/O at all, which is not very
+usefull when reading from configurationfiles
+behind a wormhole. To bypass this restriction
+a special attribute can be assigned per file.
+</blockquote>
+<h4>I/O behaviour by 'I/O enabled' flags</h4>
+<blockquote>
+A file can be I/O enabled individually. This attribute
+doesn't change its behaviour when the filesystem is mounted
+with <strong>0</strong> but when mounted with <strong>30</strong>
+the file behaves like a regular file.
+All files in directories which are expected to be behind
+wormholes have to be set I/O enabled individually. Otherwise
+a <strong>30-exported</strong> filesystem is not able
+to read from this file. The attribute <strong>I/O enabled</strong>
+disappears of course together with the file after its removal.
+<h4>How to set the I/O enable bit</strong>
+<blockquote>
+<pre>
+touch .(fset)(&lt;filename&gt;)(io)
+</pre>
+sets the I/O enable flag for the file &lt;filename&gt;. The file
+has to exist before. The attribute stays with the file
+as long as the file is not removed or the attribute is resetted.
+<pre>
+rm .(fset)(&lt;filename&gt;)(io)
+</pre>
+removes the I/O enabled attribute again.
+<strong>The removal of the 'I/O enabled' flag is not yet implemented
+in Pnfs 3.1.2.</strong>
+
+</blockquote>
+</blockquote>
+
+
+</body>
+</html>

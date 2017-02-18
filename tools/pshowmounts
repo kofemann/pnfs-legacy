@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+#
+setup=/usr/etc/pnfsSetup
+#
+if [ ! -f $setup ] ; then
+  echo " Setup file : $setup not found "
+  exit 1
+fi
+logfile=`awk -F= '{ if( $1 == "pmountdLog")print $2 }' $setup`
+if [ -z "$logfile" ] ; then 
+  echo " Logfile entry 'pmountdLog' not found in $setup"
+  exit 1
+fi
+#
+getName() {
+   nslookup $1 2> /dev/null |\
+   awk '{
+           if( $1=="Name:" ){ printf "%s\n",$2 ; exit }
+        }'
+}
+
+awk '{
+        if($6=="lookup"){printf "%s-on\n",$3;}
+        else if($5=="umount"){printf "%s-off\n",$3;}
+     }' $logfile  |\
+awk -F- '{
+     ar[$1]=$4 ;
+}END{
+  for( x in ar )printf "%s %s\n",x,ar[x]
+
+}' | sort |\
+ while read host state rest ; do
+    name=`getName $host`
+    printf "%-16s\t%s\t%s\n" $host $state $name 
+ done
+
+

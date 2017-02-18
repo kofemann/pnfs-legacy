@@ -1,0 +1,15 @@
+#
+# this and that
+#
+set printout default    all 
+set printout CellGlue   all
+set printout RoutingMgr all
+#
+set env shmid               1122
+set env commandListenPort   22129
+set context shmClientName   shmClient
+#
+create dmg.cells.services.TelnetLoginManager shmLogin "${commandListenPort} jpnfs.cells.ShmLoginCell"
+set printout shmLogin all
+#
+create jpnfs.cells.ShmClientCell ${shmClientName} "${shmid}"

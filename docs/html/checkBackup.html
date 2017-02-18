@@ -1,0 +1,90 @@
+<html>
+<head><title>Checking Database backup</title></head>
+<body bgcolor=white>
+<h1>Checking Database Backups</h1>
+These directives describe a way to check the consistency
+of a backuped pnfs database except the <strong>admin</strong>
+database. 
+<h3>Assumptions</h3>
+<ul>
+<li>Active Pnfs System, constisting of an admin database only.
+    We call it the test system.
+<li>Pnfs locally mounted on /pnfs/fs.
+<li>Pnfs database file from a backup. Filename may be &lt;fullFooPath&gt;.
+<li>This database must no be connected to a dbserver. 
+<li>This database must not be a admin database (dabaseid=0).
+<li>You need to be root on the system.
+<li>$pnfs/tools is in your PATH.
+</ul>
+<h3>Connecting the backup database to your system.</h3>
+<ul>
+<li>The full pathname of the basebase is &lt;fullFooPath&gt;.
+<li>Check the ID of the backup database :
+   <pre>
+     md2tool &lt;fullFooPath&gt; getdbid
+   </pre>
+   The result indicates the databaseId.
+   <ul>
+   <li>This number must not be zero.
+   <li>This number must be exceeded by the
+       <strong>shmserver</strong> entry in <strong>/usr/etc/pnfsSetup</strong>.
+   </ul>
+<li>Add the database to your running system.
+   <pre>
+   mdb add &lt;databaseName&gt; &lt;fullFooPath&gt;
+   mdb enable &lt;databaseName&gt;
+   mdb update
+   </pre>
+   You may chose an name for &lt;databaseName&gt; except <em>admin</em>.
+<li>Somehow you must get all &lt;pnfsEntryIds&gt; into the
+    <em>foo</em> database. These entries can only be obtained from
+    the <strong>original active PnfsSystem</strong>. You need to go into the
+    directory were the command
+    <pre>
+    mkdir .(&lt;id&gt;)(&lt;directoryName&gt;)
+    </pre>
+    had been issued, which created the link to the backuped database.
+    In exactly this directory on the original system
+    ( not the backup check system) we need to do a 
+    <pre>
+    cat .(id)(&lt;directoryName&gt;)
+    </pre>
+    We call this pnfsId, the fooLinkPnfsId-1. There are possibly more then
+    just one.
+<li><strong>Back to the test system</strong>. : Create an empty directory below
+    /pnfs/fs/admin :
+    <pre>
+    mkdir /pnfs/fs/admin/links
+    cd /pnfs/fs/admin
+    cat .(id)(links)
+    </pre>
+    The 'cat' command returns a pnfsId which we call the
+    &lt;baseDirPnfsId&gt;.
+<li>Create the entries into the backup database :
+    <pre>
+    sclient adddirentry &lt;baseDirPnfsId&gt; link-1 &lt;fooLinkPnfsId-1&gt;
+    sclient adddirentry &lt;baseDirPnfsId&gt; link-2 &lt;fooLinkPnfsId-2&gt;
+       ... repeat for all fooLinkPnfsId's ....
+    </pre>
+<li>All the <strong>/pnfs/fs/admin/links/link-&lt;n&gt;</strong> build the entries into
+    the backuped database. Following these links should give 
+    a consistent view of the filesystem before the backup was made.
+</ul>
+<h3>Cleanup</h3>
+To make room for a new check we need to remove the database again:
+<ul>
+<li>Remove the links :
+<pre>
+cd /pnfs/fs/admin/links
+rm link-1 # and so on
+</pre>
+<li>Disconnect the database from the test system.
+<pre>
+mdb disable &lt;databaseName&gt;
+mdb udpate
+rm &lt;fullFooPath&gt; # or move the file somewere else
+mdb remove &lt;databaseName&gt;
+</pre>
+</ul>
+</body>
+</html>

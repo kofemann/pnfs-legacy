@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+COM=`basename $0`
+#
+if [ ! -f /usr/etc/pnfsSetup ] ; then
+  echo " Pnfs not instelled here "
+  exit 1
+fi
+. /usr/etc/pnfsSetup
+#
+if [ -z "$pnfs" ] ; then
+  echo " Illegal formated /usr/etc/pnfsSetup file "
+  exit 1
+fi
+tools=$pnfs/tools
+if [ $COM = "ptools" ] ; then
+  if [ $# -eq 0 ] ; then 
+    echo "USAGE : ptools <tool> <args ...> "
+    exit 1
+  else
+    COM=`basename $1`
+    shift 1 
+  fi
+fi
+exec $tools/$COM $*

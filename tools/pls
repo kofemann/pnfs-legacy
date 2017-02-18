@@ -1,0 +1,20 @@
+#!/bin/sh
+cat ".(const)(d)" >/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then
+  echo " Not a pnfs filesystem"
+  exit 2
+fi
+if [ $# -eq 0 ]  ; then set * ; fi
+
+while [  -n "$1" ] ; do
+  if [ -f $1 ] ; then 
+    ls -l $1
+    for c in  1 2 3 4 5 6 7 ;do
+      ls -l ".(use)($c)($1)"
+    done
+  elif [ -d $1 ] ; then
+    ls -ld $1
+  fi
+  shift
+done
+

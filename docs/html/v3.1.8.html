@@ -1,0 +1,56 @@
+<html>
+<head><title>Version 3.1.58</title>
+</head>
+<body bgcolor="#dddddd">
+<h1>The Pnfs Version 3.1.8</h1>
+<hr>
+<h3>News</h3>
+<blockquote>
+<ul>
+<li><a href=#comp>Compatibility</a>
+<li><a href=#rmentry>Low Level 'rmdirentry' command added to 'sclient'.</a>
+<li><a href=#bugs>Fixed Bugs.</a>
+</ul>
+</blockquote>
+<hr>
+<a name=comp>
+<h3>Compatibility</h3>
+<blockquote>
+No problem coming from 3.1.3/4/5/6/7. For earlier versions consult
+<a href=v3.1.3.html#comp>V3.1.3</a>.
+<br>
+<strong>BUT</strong> all binaries must be changed. The different
+binaries may no longer work together with older binaries.
+</blockquote>
+<hr>
+<a name=rmentry>
+<h3>Low Level 'rmdirentry' command added to 'sclient'.</h3>
+<blockquote>
+To remove entries from a directory which contain
+nonprintables the sclient(rmdirentrypos) command
+is able to remove entries by position. The position
+of files can be taken from the scandir.sh tool.
+<pre>
+sclient rmdirentrypos &lt;shmid&gt; &lt;dirDataID&gt; &lt;entryID&gt; &lt;entryIndex&gt; 
+</pre>
+<strong>scandir.sh</strong> has to be executed in the corresponding
+directory and produces a list with the following entries :
+<pre>
+&lt;dirDataID&gt; &lt;entryID&gt;  &lt;entryPermission&gt; &lt;entryIndex&gt; &lt;entryName&gt; 
+</pre>
+</blockquote>
+<hr>
+<a name=bugs>
+<h3>Fixed Bugs.</h3>
+<blockquote>
+<ul>
+<li>Too long names in <strong>mkdir, mkfile, ln, rmdir ..</strong>
+    could SEGV the dbserver.
+    In these commands, the name part is now limited to 199 characters.
+    The names are only limited through the nfs door. 'sclient' can
+    still crash the dbserver.
+</ul>
+</blockquote>
+<hr>
+</body>
+</html> 

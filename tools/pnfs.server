@@ -1,0 +1,312 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+#  last name must be just the  program name
+#
+user=`id | grep "0(root)"`
+if [ -z "$user" ] ; then
+  echo " Sorry, must be root "
+#  exit 1
+fi
+
+CHKCONFIG=/usr/bin/chkconfig 
+if [ ! -x $CHKCONFIG ] ;then
+  CHKCONFIG=immerOK
+fi
+
+immerOK() {
+ return 0
+} 
+
+
+setup=/usr/etc/pnfsSetup
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find $setup "
+   exit 1
+fi
+. $setup
+
+if [ -z "$shmkey" ] ; then echo " shmkey not found in $setup " ; exit 1 ; fi
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup " ; exit 1 ; fi
+if [ -z "$database" ] ; then echo " database not found in $setup " ; exit 1 ; fi
+
+db=$database
+SHM=$shmkey
+
+tools=$pnfs/tools
+SCOM=$tools/shmcom
+LOCK=$pnfs/lock/heartbeat.minute
+
+if [ ! -f $tools/special ] ; then
+  echo " Can't find platform file : $tools/special "
+  exit 1
+fi
+. $tools/special
+
+install_shm() {
+
+nclients=`$AWK -F= '{ if($1=="shmclients")print $2 }' $setup`
+if [ -z "$nclients" ] ; then echo " shmclients not found in $setup ";exit 1;fi
+
+nservers=`$AWK -F= '{ if($1=="shmservers")print $2 }' $setup`
+if [ -z "$nservers" ] ; then echo " shmservers not found in $setup ";exit 1;fi
+
+$SCOM install $SHM $nclients $nservers >/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then
+  printf " Sorry, couldn't create Shared Memory Area\n"
+  exit 1
+else
+  printf " Shmcom : Installed $nclients Clients and $nservers Servers\n"
+fi
+return
+}
+delete_shm() {
+
+ $SCOM stat $SHM 1>/dev/null 2>/dev/null
+ if [ $? -ne 0 ] ; then echo " Sorry, can't find shm $SHM " ; return 1 ; fi
+ nclients=`$SCOM stat $SHM | $AWK '{ if($1=="Clients"){printf "%s\n",$2 }}'`
+ if [ -z "$nclients" ] ; then 
+   echo " Can't determine number of clients " ; exit 1 ;
+ fi
+ nservers=`$SCOM stat $SHM | $AWK '{ if($1=="Servers"){printf "%s\n",$2 }}'`
+ if [ -z "$nservers" ] ; then 
+   echo " Can't determine number of servers " ; exit 1 ;
+ fi
+
+ printf " Removing $nclients Clients "
+ n=0
+ while [ $n -lt $nclients ] ; do
+   printf " $n"
+   $SCOM rmclient $SHM $n 1>/dev/null 2>/dev/null
+   if [ $? -ne 0 ] ; then 
+     printf "+"
+   fi
+   n=`expr $n + 1`
+ done
+ printf "\n"
+
+ printf " Removing $nservers Servers "
+ n=0
+ while [ $n -lt $nservers ] ; do
+   printf " $n"
+   $SCOM rmserver $SHM $n 1>/dev/null 2>/dev/null
+   if [ $? -ne 0 ] ; then 
+     printf "+"
+   fi
+   n=`expr $n + 1`
+ done
+ printf "\n"
+
+ printf " Removing main switchboard ... " ; 
+ $SCOM headdelete $SHM 1>/dev/null 2>/dev/null
+ if [ $? -ne 0 ] ; then
+    printf "failed\n"  
+    exit 1
+ else
+    printf "O.K.\n"
+ fi
+ return 0
+
+}
+checkpnfsd() { 
+spps | $AWK '{ if(($NF=="pmountd")||($NF=="pnfsd"))printf "%s ",$1; }'
+}
+checkdbserver() { 
+spps | $AWK '{ if($NF=="dbserver")printf "%s ",$1; }'
+}
+checkxxx() {
+spps | $AWK '{ if($2==key)printf "%s ",$1; }'  key=$1 -
+}
+#
+#   stopxxx  <procNAME> <timeout> [kill]
+#
+stopxxx() {
+
+  pid=`checkxxx $1`
+  if [ ! -z "$pid" ] ; then 
+     kill -TERM $pid
+     printf " Killing $1 "
+     n=$2
+     while [ $n -gt 0 ] ; do
+       pid=`checkxxx $1`
+       if [ -z "$pid" ] ; then break ; fi
+       printf "."
+       sleep 1
+       n=`expr $n - 1`
+     done
+     if [ -z "$pid" ] ; then
+        printf " Done\n"
+        return 0
+     else
+        if [ -z "$3" ] ; then
+          printf " Failed\n"
+          return 1
+        else
+          kill -9 $pid
+          printf " Killed(-9)\n"
+          return 0
+        fi
+     fi 
+  fi
+}
+#
+#  killall   [kill]
+#
+killall() {
+ 
+ if [ $# -eq 0 ] ; then
+   stopxxx pnfsd     10 ;  if [ $? -ne 0 ] ; then return 1 ; fi
+   stopxxx pmountd    5 ;  if [ $? -ne 0 ] ; then return 1 ; fi
+   stopxxx pnfs3d    10 ;  if [ $? -ne 0 ] ; then return 1 ; fi
+   stopxxx pmount3d   5 ;  if [ $? -ne 0 ] ; then return 1 ; fi
+   stopxxx dbserver  30 ;  if [ $? -ne 0 ] ; then return 1 ; fi
+ elif [ "$1" = "pnfsd" ] ; then
+    stopxxx pnfsd     10 
+ elif [ "$1" = "pmountd" ] ; then
+   stopxxx pmountd    5 
+ elif [ "$1" = "pnfs3d" ] ; then
+    stopxxx pnfsd     10 
+ elif [ "$1" = "pmount3d" ] ; then
+   stopxxx pmountd    5 
+ elif [ "$1" = "dbserver" ] ; then
+   stopxxx dbserver  30 
+ fi
+ return $?
+}
+startServer() {
+   prog=$1
+   shift 1
+   printf " Starting $prog ... "
+   X=`spps | $AWK '{ if($2==p)print $1 ; }' p=$prog -`
+   if [ ! -z "$X" ] ; then 
+      printf " already Running\n" ;
+      return 1 
+   else
+      ./$prog $*  1>/dev/null 2>/dev/null 
+      if [ $? -ne 0 ] ; then printf "Failed\n" ; return 1
+       else printf "O.K.\n" ; return 0 ; fi              
+   fi
+
+}
+startDbServer() {
+ tmp=/tmp/tmp-$$
+ spps | $AWK '{ if( $2 == "dbserver" )print $NF ; }' >$tmp
+ $AWK -F= '{ printf "%s %s\n",$1,$2 }' $database/databases |\
+        while read dbName dbPath rest ; do
+            if [ ! -f $dbPath ] ; then 
+                echo " Database $dbName ($dbPath) not found"
+                continue 
+            fi
+            printf " Starting database server for $dbName ($dbPath) ... "
+            X=`$AWK '{ if($1==dbname)print $1 ; }' dbname=$dbName $tmp`
+            if [ ! -z "$X" ] ; then 
+               printf " already Running\n" ; 
+            else
+               ./dbserver $dbName  1>/dev/null 2>/dev/null 
+               if [ $? -ne 0 ] ; then printf "Failed\n" 
+               else printf "O.K.\n" ; fi              
+            fi
+        done
+  rm $tmp
+  if [ -f $LOCK.stop ] ; then mv $LOCK.stop $LOCK ; fi
+  return 0
+}
+cleanShmClients() {
+
+ clients=`$SCOM show $SHM | $AWK '{ if($1=="Clients")printf "%s\n",$3 }'` 
+ i=0
+ printf " Cleaning client : "
+ while [ $i -lt $clients ] ; do
+   $SCOM rmclient $SHM $i >/dev/null 2>/dev/null
+   printf " $i"
+   i=`expr $i + 1`
+ done
+ printf "\n"
+
+ return
+
+}
+# Start/stop processes required for server PNFS
+#
+
+case "$1" in
+'start')
+    $CHKCONFIG pnfs
+    if [ $? -ne 0 ] ;then 
+      echo " Pnfs is switched off by chkconfig "
+      exit 1
+    fi
+    shift 1
+    cd $tools
+    if [ $# -eq 0 ] ; then
+       delete_shm 1>/dev/null 2>/dev/null
+       install_shm 
+       startDbServer
+       printf " Waiting for dbservers to register "
+       sleep 1 ; printf ".";sleep 1 ; printf  ".";sleep 1 ; printf  ".";
+       printf " Ready\n"
+       echo " Starting Mountd : pmountd "
+       ./pmountd 1>/dev/null 2>/dev/null 
+       echo " Starting nfsd : pnfsd "
+       ./pnfsd 1>/dev/null 2>/dev/null
+	   if [ -x ./pnfs3d ] && [ -x ./pmount3d ]
+	   then
+	       echo " Starting Mountd v3 : pmount3d "
+    	   ./pmount3d 1>/dev/null 2>/dev/null 
+	       echo " Starting NFSv3 : pnfs3d "
+    	   ./pnfs3d 1>/dev/null 2>/dev/null	   
+	   fi	   	   
+    else
+       case $1 in 
+          'pnfsd')    startServer pnfsd ;;
+          'pmountd')  startServer pmountd ;;
+          'pnfs3d')    startServer pnfs3d ;;
+          'pmount3d')  startServer pmount3d ;;
+          'dbserver') startDbServer ;;
+       esac
+    fi
+    ;;
+'shm')  shift 1
+        case $1 in 
+           'delete') delete_shm ;;
+           'create') install_shm ;;
+           *)        echo " pnfs.server shm  delete|create " ;; 
+        esac
+	;;
+'stop') shift 1 
+        if [ $# -eq 0 ] ; then
+           printf " Stopping Heartbeat .... "
+           if [ -f $LOCK ] ; then mv $LOCK $LOCK.stop ; fi
+           sleep 4
+           printf " Ready\n"
+           killall
+           if [ $? -eq 0 ] ; then
+               delete_shm
+           else
+                echo " Still some servers running ; shm remains "
+           fi
+        else
+           killall $*
+        fi
+        ;;
+'restart')  $0 stop ; $0 start ;;
+*)
+	echo "Usage: pnfs.server { start | stop | restart }"
+	echo "       pnfs.server  start [ dbserver | pnfsd | pmountd | pmount3d | pnfs3d ]"
+	echo "       pnfs.server  stop  [ dbserver | pnfsd | pmountd | pmount3d | pnfs3d ]"
+	;;
+esac

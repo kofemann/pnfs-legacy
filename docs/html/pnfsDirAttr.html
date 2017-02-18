@@ -1,0 +1,30 @@
+<html>
+<head><title>Dirctory based attributes</title>
+</head>
+<body bgcolor="#eeeeee">
+<h1>Enhanced Pnfs Security</h1>
+<blockquote>
+With pnfs version 3.1.10, installed Nov 7 2002, we are able to
+disallow the remove/move operation of directory contents.
+Once a directory got this property, no nfs command, independent
+of the client machine and the issuer, is able to remove or move
+an object within this directory. The action of enabling and disabling
+of the property can only be done on the database server (resp. nfs server)
+itself.
+The following details have to be considered :
+<ul>
+<li>The property of a directory to dis/enable remove/move operations
+    is only valid for exactly this directory. Subdirectories
+    are not affected if they exist at the point in time,
+    the property of the parent is set/changed.
+<li>For convenience, a newly created directory inherits the 
+    properties of its parent directory. From that point on,
+    they are independent again. So, changing the
+    property of the parent doesn't change the property of the child.
+<li>No other nfs operations are affected by the remove/move directory properties.
+    create/chmod/chown etc. are still allowed.
+</ul>
+</blockquote>
+<address>Patrick Fuhrmann (patrick.fuhrmann@desy.de) $Id: pnfsDirAttr.html,v 1.2 2002-11-12 11:42:24 cvs Exp $</address>
+</body>
+</html>

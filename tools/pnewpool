@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+if [ $# -ne 3 ] ; then
+  echo " USAGE : pnewpool <store> <pool> <host>"
+  exit 1
+fi
+#
+tmpl=".(tag)(OSMTemplate)"
+group=".(tag)(sGroup)"
+prio=".(tag)(OSMPriority)"
+#
+tmpfile=/tmp/pnewpool-$$
+#
+#if [ -f $tmpl ] ; then echo " Sorry, $tmpl already exists " ; exit 1 ;fi
+#if [ -f $group ] ; then echo " Sorry, $group already exists " ; exit 1 ;fi
+#if [ -f $prio ] ; then echo " Sorry, $prio already exists " ; exit 1 ;fi
+rm -f $tmpfile
+cat >$tmpl  <<!
+StoreName      $1
+StorageGroup    -#0
+Info           $2
+MigrationPath  default
+Host           $3
+RetensionTime  3
+!
+echo $2 >$group
+touch $prio 
+#

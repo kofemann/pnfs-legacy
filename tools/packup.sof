@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+setup=/usr/etc/pnfsSetup
+#
+wait_for_lock() {
+  while : ; do
+     mkdir  $dblock/backupInProcess 2>/dev/null
+     if [ $? -eq 0 ] ; then break ; fi
+     sleep 5
+  done
+  echo $$ >$dblock/backupInProcess/pid
+}
+return_lock() {
+   rm -fr $dblock/backupInProcess
+}
+get_filesize() {
+
+ls -l $1 2>/dev/null | awk '{ print $5/1024/1024+1 }'
+
+}
+rest_size() {
+  df -k $1 |\
+       awk '{ i++; if((i==2)&&($4/1024) > ( fs + 10 ))print fn 
+            }' fn=$1 fs=$2 -
+}
+check_file_fits() {
+
+  rc=`rest_size /tmp $1` 
+  if [ ! -z "$rc" ] ; then echo $rc ; return 0 ; fi
+  rc=`rest_size /var/tmp $1` 
+  if [ ! -z "$rc" ] ; then echo $rc ; return 0 ; fi
+  rc=`rest_size /usr/db/pnfs/DB/backup $1` 
+  if [ ! -z "$rc" ] ; then echo $rc ; return 0 ; fi
+  return 0
+}
+#
+init_me() {
+#
+#  check for existence of our setup
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find setup file $setup "
+   exit 1
+fi
+#
+db=`awk -F= '{ if( $1=="database" )print $2 }' $setup`
+if [ -z "$db" ] ; then 
+  echo " No database found in $setup "
+  exit 1
+fi
+dblock=$db/lock
+lockdir=$dblock/backupInProcess
+#
+f=0
+for c in $db/D-???? ; do
+   dbname=`awk -F: '{ print $1 }' $c`
+   if [ $1 = "$dbname" ] ; then f=1 ; break ; fi
+done
+if [ $f -eq 0 ] ; then
+   echo " Database Name $1 not in InfoDatabase "
+   exit 1
+fi
+dbinfo=$c
+}
+do_the_backup() {
+   init_me $1
+   wait_for_lock
+
+   dbpath=`awk -F: '{ print $5 }' $dbinfo`
+   dbid=`awk -F: '{ print $2 }' $dbinfo`
+   fs=get_filesize $dbpath
+   if [ -z "$fs" ] ; then
+     echo " Couldn't determine filesize of $dbpath "
+     return_lock
+     exit 1
+   fi
+   tmpdir=`check_file_fits $fs`
+   if [ -z "$tmpdir" ] ; then
+     echo " Couldn't find enough space for $dbname "
+     return_lock
+     exit 1
+   fi
+   touch $lockdir/readOnly
+     smd exec $dbid disablewrite 1>/dev/null 2>/dev/null
+     if [ $?- ne 0 ] ; then
+       echo " Database $dbname($dbid) is still locked "
+       return_lock
+     fi
+     mkdir -p $tmpdir/packup
+     echo "$tmpdir/packup/$dbname" >$lockdir/backupPath
+     cp $dbpath $tmpdir/packup/$dbname  &
+     echo $! >$lockdir/copyId 
+       wait $!
+     rm $lockdir/copyId
+     smd exec $dbid enablewrite 1>/dev/null 2>/dev/null
+   rm $lockdir/readOnly
+}
+#
+# -----------------------------------------------
+#
+#       Main
+#
+# -----------------------------------------------
+#
+case $1 in 
+   backup) shift 1 ; do_the_backup $* ;;
+   watchdog)  shift 1 ; the_watchdog $* ;;
+esac

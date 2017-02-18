@@ -1,0 +1,32 @@
+shmkey=1122
+shmclients=8
+shmservers=8
+pnfs=/himera/pnfs/
+environment=/0/root/fs/admin/etc/environment
+database=/himera/pnfs/db/info
+# connectio string for PostgreSQL
+# dbConnectString=user=pnfs host=charybdis
+trash=/himera/pnfs/db/trash
+pnfscopies=4
+#
+#   define md2pMOREINFO  (3)
+#   define md2pINFO      (4)
+#   define md2pMODINFO   (5)
+#
+pmountdLog=/var/log/pmountd.log
+pmount3dLog=/var/log/pmount3d.log
+dbserverLog=/var/log/dbserver.log
+pnfsdLog=/var/log/pnfsd.log
+pnfs3dLog=/var/log/pnfsd.log
+pnfsdLevel=5
+pnfs3dLevel=5
+pmountdLevel=0
+pmount3dLevel=0
+dbserverLevel=0
+hardlinks=on
+# Enable node IP lookups for file ops
+###usetrust=off
+# Enable file deletion registration in the database
+###registerDeletion=on
+netmask=16
+levelmask=0:-1:-1:-1:-1:-1:-1:-1

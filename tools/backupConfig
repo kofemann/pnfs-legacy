@@ -1,0 +1,57 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+#set -x
+setup=/usr/etc/pnfsSetup
+tarfile=/tmp/pnfsConfigBackup.tar
+ifile=/tmp/pnfsConfigInclude
+#
+if [ ! -f $setup ] ; then exit 1 ; fi
+
+. $setup 1>/dev/null 2>/dev/null
+
+if [ -z "$database" ] ; then exit 3 ; fi
+if [ -z "$pnfs" ] ; then exit 3 ; fi
+
+rm -f $ifile
+echo /usr/etc/pnfsSetup  >>$ifile
+echo /usr/etc/pnfsHeartbeat >>$ifile
+echo /etc/init.d/pnfs.server >>$ifile
+echo "$pnfs/tools" >>$ifile
+for c in $database/D-* ; do
+  echo $c >>$ifile
+done
+for c in $database/scheduler/*OK ; do
+  echo $c >>$ifile
+done
+for c in $database/scheduler/*RETRYLIMIT ; do
+  echo $c >>$ifile
+done
+for c in $database/lock/heartbeat.* ; do
+  echo $c >>$ifile
+done
+echo /usr/sbin/ptools >>$ifile
+echo /usr/sbin/mdb >>$ifile
+echo /usr/sbin/pmount >>$ifile
+echo /usr/sbin/pnewpool >>$ifile
+echo /usr/sbin/playout >>$ifile
+#
+/bin/tar cf $tarfile -I $ifile
+#
+echo ""
+echo " The configuration has been saved into $tarfile "
+echo ""

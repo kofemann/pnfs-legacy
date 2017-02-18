@@ -1,0 +1,68 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+setup=/usr/etc/pnfsSetup
+SCL=sclient
+#
+usage() {
+   echo " Usage : smd vi  <id> "
+   echo "         smd cat <id> "
+   return 0
+}
+
+#
+#  check for existence of our setup
+#@
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find setup file $setup "
+   exit 1
+fi
+#
+shm=`awk -F= '{ if( $1=="shmkey" )print $2 }' $setup`
+if [ -z "$shm" ] ; then 
+  echo " No shared memory key (shmkey) found in $setup "
+  exit 1
+fi
+#
+if [ $# -lt 1 ] ; then 
+  usage
+  exit 1 
+fi
+com=$1
+shift
+#
+rc=0
+case $com in
+  vi)  
+       if [ $# -eq 0 ] ; then exit 1 ; fi
+       tmpfile=/tmp/pnfs-$$-tmp
+       sclient copy $shm $1 $tmpfile
+       vi $tmpfile
+       sclient copy $shm $tmpfile $1
+       rc=$?
+       rm $tmpfile
+       ;;
+  cat) if [ $# -eq 0 ] ; then exit 1 ; fi
+       sclient copy $shm $1 /dev/tty 
+       rc=$? 
+       ;;
+
+  *)  sclient $com $shm $* 
+       rc=$? 
+       ;;
+esac
+exit $rc

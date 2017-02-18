@@ -1,0 +1,122 @@
+<html>
+<head><title>Version 3.1.9</title>
+</head>
+<body bgcolor="#eeeeee">
+<h1>Pnfs Release Notes 3.1.9 </h1>
+<hr>
+<h3>News</h3>
+<blockquote>
+<ul>
+<li><a href=#comp>Compatibility</a>
+<li><a href=#bugs>Bug Fixes</a>
+<li><a href=#slow>Behaviour on high load</a>
+<li><a href=#dcache>Modifications for dCache compatibility</a>
+<li><a href=#security>Initial security means (krb5 and ssl preparation)</a>
+</ul>
+</blockquote>
+<hr>
+<a name=comp>
+<h3>Compatibility</h3>
+<blockquote>
+No problem coming from 3.1.3 or later. For earlier versions consult
+<a href=v3.1.3.html#comp>V3.1.3</a>.
+<br>
+<strong>BUT</strong> all binaries must be 3.1.9. 
+</blockquote>
+<hr>
+<a name=bugs>
+<h3>Bug Fixes</h3>
+<blockquote>
+<strong>File name length</strong>
+<blockquote>
+File names and link names may now have up to 199 characters without the 
+special pnfs characters ".(...". This is not true for
+directory names. Directory names are limited to 199 characters,
+pnfs specials included.
+</blockquote>
+<strong>Removing level files</strong>
+<blockquote>
+When removing special pnfs level files, the file itself wasn't changed
+but the contents of the different levels were written into the
+trash directories as if the master (level 0) had been removed.
+This caused the backend HSM to remove the file from tape without 
+changing the pnfs filesystem entry. (very nasty problem).
+<br>Has been fixed.
+</blockquote>
+
+</blockquote>
+<hr>
+<a name=slow>
+<h3>Behaviour on high load</h3>
+<blockquote>
+There are two new compile time flags defining the behaviour of
+the pnfs deamons if the number of requests exceeds the maximum
+performance of the database servers.
+<p>
+<strong>POST_TIMEOUT=&lt;#ofSeconds&gt;</strong>
+<blockquote>
+This options defines the number of seconds the pnfs server
+will wait for the database server to become available.
+</blockquote>
+<strong>NO_ANSWER_ON_TIMEOUT</strong>
+<blockquote>
+This option defines the type of answer, the pnfs deamon replies
+to the client in case the database server doesn't become 
+available within POST_TIMEOUT.
+If NO_ANSWER_ON_TIMEOUT is defined, the pnfs server won't answer
+at all, otherwise it sends an <em>NO SUCH FILE OR DIRECTORY</em>.
+</blockquote>
+In case the pnfs server is hard mounted, the POST_TIMEOUT should
+be set to the nfs client retry time and NO_ANSWER_ON_TIMEOUT
+should be defined.
+</blockquote>
+<hr>
+<a name=dcache>
+<h3>Modifications for dCache compatibility</h3>
+<blockquote>
+Some pnfs special commands modify file attributes like filesize or
+uid/gid by pnfsId after the object has been created. Unfortunately
+the solaris nfs clients send a nfs command setting the group id
+after doing the required operation to the id of the sender of the
+command, which in terms of the dCache is wrong because the cache
+always is running as root. The oberved effect was that after
+successfully creating a file with the correct uid/gid of the
+user, the file suddenly changed to the gid to 1 or 0 as soon as the
+dCache has set the correct filesize. Something similiar happens if
+the dCache has to create the file entry. It will do so as root and
+later on uses a special pnfs command to change the uid/gid. 
+While the uid always changed sucessfully the gid never actually
+changed if the dCache PnfsManager has been running on solaris machines.
+<br>Has been fixed.  
+</blockquote>
+<hr>
+<a name=security>
+<h3>Security preparation</h3>
+<blockquote>
+<strong>Disabling remote  <em>remove</em> and <em>move</em> operations</strong>
+<blockquote>
+Pnfs now allows to block the <em>remove</em> resp. the <em>move</em> operation
+on directory bases. For directories mark as <em>non remove/move</em>
+these operations are switched off. This feature is intended to soften
+the non existing nfs2/3 security mechanisms. All other nfs operations
+(e.g. create, chmod, setattr) are not affected.
+See <a href="moresecurity.html">Enhanced security</a>
+for more information.
+</blockquote>
+<strong>Preparing dCache strong security access</strong>
+<blockquote>
+In order to allow a smooth migration from the current nfs2/3 based
+security mechanism to a more enhanced one (krb5 or ssl)
+v3.1.9 now provides the possiblity to declare directories
+as <em>protected</em>. Protected directories can only be modified
+by trusted hosts with a trust level of at least 14.
+(/pnfs/fs/admin/etc/exports/trusted/...).
+It is assumed that all pnfs operations on these directories are done
+through secure channels an not via the nfs protocol.
+See <a href="moresecurity.html">Enhanced security</a>
+for more information.
+</blockquote>
+</blockquote>
+<hr>
+</body>
+</html> 

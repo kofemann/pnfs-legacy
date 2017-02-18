@@ -1,0 +1,147 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#set -x
+#
+setup=/usr/etc/pnfsSetup
+#
+if [ ! -f $setup ] ; then
+  echo " Can't locate $setup "
+  exit 1
+fi
+. /usr/etc/pnfsSetup
+#
+#
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup " ; exit 1 ; fi
+if [ -z "$database" ] ; then echo " database not found in $setup " ; exit 1 ; fi
+if [ -z "$remotebackup" ] ; then echo " remotebackup not found in $setup " ; exit 1 ; fi
+#
+db=$database
+backdir=$database/../backup
+genFile=$backdir/backupGeneration
+tools=$pnfs/tools
+PATH=$tools:$PATH
+#
+if [ ! -d $backdir ] ; then
+  echo " Can't locate $backdir "
+  exit 1
+fi
+#
+# ----------------------------------------------------------------------
+#
+if [ ! -f $db/D-0000 ] ;then echo " Admin not present " ; exit 1 ; fi
+#
+# ----------------------------------------------------------------------
+#
+save_loop() {
+
+if [ ! -f $genFile ] ; then
+   echo 1 >$genFile
+fi
+#
+generation=`cat $genFile 2>/dev/null `
+generation=`expr $generation + 0`
+newGen=`expr $generation + 1`
+if [ $newGen -gt 4 ] ; then newGen=1 ; fi
+#
+echo $newGen >$genFile 
+#
+for c in $db/D-???? ; do
+  mode=save
+  name=`awk -F: '{ print $1 }' $c`
+  dbid=`awk -F: '{ print $2 }' $c`
+  status=`awk -F: '{ print $4 }' $c`
+  fullpath=`awk -F: '{ print $5 }' $c`
+  if [ $status != "enabled" ] ; then continue ; fi  
+  save_low
+  if [ $? -ne 0 ] ; then return 1 ; fi
+done
+
+}
+checkSpaceLeft() {
+  filename=$1
+  destDev=$2
+  destDevice=`echo $destDev | awk -F: '{ print $2 }'`
+  destHost=`echo $destDev | awk -F: '{ print $1 }'`
+
+
+  if [ -z "$destDevice" ] ; then
+     destDevice=$destHost
+     spaceLeft=`df -k $destDevice | grep -v "Filesystem" | awk '{ print $4}' 2>/dev/null`
+  else
+     spaceLeft=`rsh $destHost df -k $destDevice | \
+                grep -v "Filesystem" | awk '{ print $4}' 2>/dev/null`
+     if [ -z "$spaceLeft" ] ; then echo "Remote df -k Command failed " ; exit 5 ; fi
+  fi
+  spaceLeft=`expr $spaceLeft / 1024 `
+  spaceNeeded=`ls -l $filename | awk '{ print $5 }' 2>/dev/null `
+  spaceNeeded=`expr $spaceNeeded / 1024 / 1024 + 1`
+  spaceNeeded=`expr 2 \* $spaceNeeded `
+  if [ $spaceNeeded -gt $spaceLeft ] ; then return 1 ; fi
+  return 0
+
+}
+save_low() {
+
+      dest=$backdir/`basename $fullpath`.$generation
+      echo " Copying $fullpath $dest "
+      checkSpaceLeft $fullpath $backdir
+      if [ $? -ne 0 ] ; then
+        echo " Not enough space left on $backdir"
+        return 1
+      fi
+      cp $fullpath $dest
+      if [ $? -ne 0 ] ; then
+        echo " Copy command failed : $?"
+        return 1
+      fi
+      $tools/md2tool $dest getdbid >/dev/null 2>/dev/null
+      if [ $? -ne 0 ] ; then
+        echo " The copy of Database $fullpath ( -> $dest ) seems to be currupted "
+        echo " The copyprocess is stopped "
+        echo " Copy the database again : cp $fullpath $dest "
+        echo " and check consistency with $tools/md2tool $dest "
+        echo " ( The original database can't be checked as long as"
+        echo "   the corresponding dbserver is running ) "
+        return 1
+      fi
+      nice -5 compress $dest
+      if [ $? -ne 0 ] ; then
+        echo " Compress command failed : $?"
+        return 1
+      fi
+      touch  $dest.Z
+      checkSpaceLeft $dest.Z $remotebackup
+      if [ $? -ne 0 ] ; then
+        echo " Not enough space left on $remotebackup"
+        return 1
+      fi
+      rcp $dest.Z $remotebackup
+      if [ $? -ne 0 ] ; then
+        echo " Failed $? : rcp $dest.Z $remotebackup"
+        return 1
+      fi
+      rm $dest.Z
+
+return 0
+
+}
+
+# ----------------------------------------------------------------------
+
+mode=save
+#
+save_loop $*

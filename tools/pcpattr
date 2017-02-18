@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# $Id: pcpattr,v 1.4 2004-12-22 11:49:07 tigran Exp $
+# set -x
+if [ $# -ne 2 ] ; then
+   echo "USAGE : <fromAttributeFile> <toAttributeFile>"
+   exit 3
+fi
+fromPath=$1
+toPath=$2
+#
+fromDir=`dirname $fromPath`
+fromFile=`basename $fromPath`
+toDir=`dirname $toPath`
+toFile=`basename $toPath`
+fromId=`cat "$fromDir/.(id)($fromFile)" 2>/dev/null`
+if [ $? -ne 0 ] ; then 
+   echo "Source not PNFS Object or missing"
+   exit 3
+fi
+toId=`cat "$toDir/.(id)($toFile)" 2>/dev/null`
+if [ $? -ne 0 ] ; then 
+   echo "Destination not PNFS Object or missing"
+   exit 3
+fi
+attrs=`cat "$fromDir/.(getattr)($fromId)" 2>/dev/null`
+if [ $? -ne 0 ] ;then 
+  echo "Can't determine attributes of $fromPath" 
+  exit 4
+fi 
+# echo "Source attributes are : $attrs"
+#
+if [ -f $fromPath ] ; then
+   if [ ! -f $toPath ] ;then
+      echo "Destination object not File or missing"
+      exit 2
+   fi
+   i=0
+   rv=0
+   echo "$attrs" | while read at ; do
+#      echo $i : $at
+      touch -a "$toDir/.(pset)($toId)(attr)($i)($at)" >/dev/null 2>/dev/null
+      rc=$?
+      if [ $rc -ne 0 ] ;then
+         echo "Can't set attributes of $toPath (level=$i) rc=$rc"
+         rv=$rc
+         break
+      fi
+      i=`expr $i + 1`
+   done
+   exit $rv
+elif [ -d $fromPath ] ; then
+   if [ ! -d $toPath ] ;then
+      echo "Destination object not Directory or missing"
+      exit 2
+   fi
+   touch -a "$toDir/.(pset)($toId)(attr)(0)($attrs)" >/dev/null 2>/dev/null
+   if [ $? -ne 0 ] ;then
+      echo "Can't set attributes of $toPath"
+      exit 5
+   fi
+else
+    echo "Source object not File/Directory or missing"
+    exit 2
+fi
+exit 33

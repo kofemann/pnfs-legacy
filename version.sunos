@@ -1,0 +1,15 @@
+CC=gcc
+LEX=lex
+VERSION=V3.0.2
+MTYPE=sunos
+VCFLAGS=-g -O2
+UCBLIB=
+RPCSOCLIB=
+GDBASE=-L../gdb/gdbm-1.7.3 -lgdbm
+GDBASEINC=-I../gdb/gdbm-1.7.3
+OBJECTS=sunos
+RANLIB=ranlib
+#
+#  Platform specific 64-bit freopen() command.
+#
+FREOPEN64=freopen64

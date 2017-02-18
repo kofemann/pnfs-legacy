@@ -1,0 +1,186 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+# tries to check the functionality of the dot syntax
+#
+#set -x
+#
+minVersion=30102
+#
+#
+this=`pwd`
+bn=dot-check-$$
+#
+bnDIR=${bn}-root
+waste=/tmp/dotCheck.tmp
+testfile=${bn}-file
+ECHO=/bin/echo
+#
+$ECHO "Pnfs Version $minVersion Check Dot Syntax"
+cleanup() {
+  cd $this
+  rm -fr $bnDIR $waste
+  return 0
+}
+cleanupExit() {
+   cleanup
+#   $ECHO "\n\n Cleanup done\n\n"
+   exit 2
+}
+problem(){
+  $ECHO $1
+  cleanup
+  exit 1
+}
+ 
+# ---------------------------------------------------
+sizeOf() {
+  x=`ls -l $1 2>/dev/null`
+  if [ $? -ne 0 ] ; then return 1 ; fi
+  $ECHO $x | awk '{ print $5 }'
+  return 0 
+}
+# ---------------------------------------------------
+ 
+$ECHO "\n  --- Basic Checks ---\n"
+$ECHO  "Checking for pnfs filesystem ... \c"
+cat ".(const)(x)" 1>$waste 2>/dev/null
+if [ $? -ne 0 ] ; then
+   $ECHO "Not a pnfs filesystem"
+   exit 1
+fi
+$ECHO " OK"
+ver=`awk -F= '{ if($1=="MD2_P_VERSION")print $2 ; }' $waste 2>/dev/null`
+rm $waste
+$ECHO "Found pnfs Version : $ver"
+v=`expr $ver + 0`
+if [ $v -lt $minVersion ] ; then 
+   problem "SORRY : Version not recent enough for most of my checks ($minVersion)"
+fi
+  
+
+$ECHO "Creating temporary directory $bnIDR ... \c"
+mkdir $bnDIR 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then
+   $ECHO " Failed  ( $bnDIR in`pwd`)"
+   exit 1
+fi
+cd $bnDIR 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then
+   $ECHO " Failed : Couldn't cd to $bnDIR "
+   cleanup
+   exit 1
+fi
+$ECHO " OK"
+# ---------------------------------------------------
+$ECHO "Trying to get my position ... \c"
+cat ".(get)(cursor)" >$waste 2>/dev/null
+if [ $? -ne 0 ] ; then problem "FAILED : Can get .(get)(cursor) " ; fi
+$ECHO " OK"
+. $waste
+#$ECHO " dirID : $dirID ; dirPerm : $dirPerm ; mountID : $mountID "
+mode=`$ECHO $dirPerm | awk '{ print substr( $1 , 15, 1 ) }'`
+level=`$ECHO $dirPerm | awk '{ print substr( $1 , 16 , 1 ) }'`
+#$ECHO " We at level $level in mode $mode "
+if [ $mode = "2" ] ; then
+   $ECHO "The I/O mode of level 0 is DISABLED "
+else
+   $ECHO "The I/O mode of level 0 is ENABLED "
+fi
+
+$ECHO "\n  --- pnfs ID checks ---\n"
+
+# ---------------------------------------------------
+$ECHO "creating file ... \c"
+touch $testfile 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then problem "Failed " ; else $ECHO " OK" ; fi
+# ---------------------------------------------------
+$ECHO "getting pnfdID ... \c"
+pnfsid=`cat ".(id)($testfile)" 2>/dev/null`
+if [ \( $? -ne 0 \) -o -z "$pnfsid" ] ; then
+problem " FAILED " ; else  $ECHO " OK" ; fi
+# ---------------------------------------------------
+$ECHO "getting filename from pnfsid ... \c"
+fn=`cat ".(nameof)($pnfsid)" 2>/dev/null | tr -d "\n" | awk '{ print $1 }'`
+if [ \( $? -ne 0 \) -o -z "$fn" ] ; then
+problem " FAILED " ; else  $ECHO " OK" ; fi
+$ECHO "comparing ... [$fn] - [$testfile]\c"
+if [ "$fn" != "$testfile" ] ; then problem "Failed " ; else $ECHO " OK" ; fi
+# ---------------------------------------------------
+
+$ECHO "\n  --- setting filesize checks ---\n"
+
+$ECHO "setting filesize ... \c"
+touch ".(fset)($testfile)(size)(123456)" 1>/dev/null 2>/dev/null
+if [ $? -ne -0 ] ; then problem "Failed" ; fi
+$ECHO " comparing ... \c"
+n=`sizeOf $testfile 2>/dev/null`
+if [ $? -ne -0 ] ; then problem "Failed : (getattr problem)" ; fi
+if [ "$n" != "123456" ] ; then problem "Failed : size not set" ;fi
+$ECHO "OK"
+# ---------------------------------------------------
+$ECHO "changing filesize ... \c"
+touch ".(fset)($testfile)(size)(654321)" 1>/dev/null 2>/dev/null
+if [ $? -ne -0 ] ; then problem "Failed" ; fi
+$ECHO " comparing ... \c"
+n=`sizeOf $testfile 2>/dev/null`
+if [ $? -ne -0 ] ; then problem "Failed : (getattr problem)" ; fi
+if [ "$n" != "123456" ] ; then problem "Failed : size changed" ;fi
+$ECHO " size not changed OK"
+# ---------------------------------------------------
+$ECHO "resetting filesize ... \c"
+rm ".(fset)($testfile)(size)" 1>/dev/null 2>/dev/null
+if [ $? -ne -0 ] ; then problem "Failed (rm)" ; fi
+$ECHO " comparing ... \c"
+n=`sizeOf $testfile 2>/dev/null`
+if [ $? -ne -0 ] ; then problem "Failed : (getattr problem)" ; fi
+if [ "$n" != "0" ] ; then problem "Failed : size not resetted" ;fi
+$ECHO " size = 0  OK"
+# ---------------------------------------------------
+$ECHO "setting filesize again ... \c"
+touch ".(fset)($testfile)(size)(123456)" 1>/dev/null 2>/dev/null
+if [ $? -ne -0 ] ; then problem "Failed" ; fi
+$ECHO " comparing ... \c"
+n=`sizeOf $testfile 2>/dev/null`
+if [ $? -ne -0 ] ; then problem "Failed : (getattr problem)" ; fi
+if [ "$n" != "123456" ] ; then problem "Failed : size not set" ;fi
+$ECHO "OK"
+# ---------------------------------------------------
+
+$ECHO "\n  --- setting io checks ---\n"
+rm ".(fset)($testfile)(size)" 1>/dev/null 2>/dev/null
+
+if [ "$mode" != "0" ] ; then  
+   $ECHO "copying into fs ... \c" 
+   cp /etc/group $testfile 1>/dev/null 2>/dev/null
+   if [ $? -eq 0 ] ; then $ECHO " file copied : Failed" ; fi
+   $ECHO "denied OK"
+#   next touch needed because irix removed the file if rc!=0 
+   touch $testfile 1>/dev/null 2>/dev/null
+   $ECHO "setting io mode on ... \c"
+   touch ".(fset)($testfile)(io)" 1>/dev/null 2>/dev/null
+   if [ $? -ne -0 ] ; then problem "Failed" ; fi
+   $ECHO "OK"
+   $ECHO "copying into fs ... \c" 
+   cp /etc/group $testfile 1>/dev/null 2>/dev/null
+   if [ $? -ne 0 ] ; then $ECHO " denied : Failed" ; fi
+   $ECHO " copied OK"
+else
+  $ECHO "Skipped : This is an I/O enabled filesystem \n" ;
+fi
+cleanup
+exit 0

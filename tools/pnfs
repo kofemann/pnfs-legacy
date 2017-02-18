@@ -1,0 +1,157 @@
+#!/bin/sh
+#
+md=/home/patrick/pnfs/pnfs3.0.0/tools/md
+#set -x
+#
+find_string() {
+       if [ $# -ne 1 ] ; then exit 1 ; fi
+
+       id=`md getid $1 | awk '{ print $1 }'`
+       if [ "$id" = "md2ObjectToId" ] ; then return 1 ; fi
+       echo $id
+       return 0
+}
+exitNF() {
+ echo " File not found : $1 "
+ exit 1
+}
+unix_pnfs() {
+       pf=`echo $1 | awk -F: '{ print $1 }'`
+       ct=`echo $1 | awk -F: '{ print $2 }'`
+       id=`find_string $pf`
+       if [ $? -ne 0 ] ; then exitNF $1 ; fi
+       md topnfs $2 $id $ct
+}
+#
+case $1 in 
+   ls)
+       if [ $# -eq 1 ] ; then dir="/root" ; else dir=$2 ; fi
+       id=`find_string $2`
+       if [ $? -ne 0 ] ; then exitNF $2 ; fi
+       md ls-l $id
+     ;;
+   cp)
+       if [ $# -ne 3 ] ; then 
+          echo "USAGE :  cp <pnfsPath> <pnfsPath> "
+          exit 1
+       fi
+       tmp=/tmp/pnfs-$$
+       pf=`echo $2 | awk -F: '{ print $1 }'`
+       ct=`echo $2 | awk -F: '{ print $2 }'`
+       id=`find_string $pf`
+       if [ $? -ne 0 ] ; then exitNF $2 ; fi
+       touch $tmp
+       md frompnfs $tmp $id $ct
+       pf=`echo $3 | awk -F: '{ print $1 }'`
+       ct=`echo $3 | awk -F: '{ print $2 }'`
+       id=`find_string $pf`
+       if [ $? -ne 0 ] ; then rm $tmp ; exitNF $3 ; fi
+       md topnfs $tmp $id $ct
+       rm $tmp
+     ;;
+   vi)
+       if [ $# -ne 2 ] ; then 
+          echo "USAGE : vi <pnfsPath>"
+          exit 1
+       fi
+       tmp=/tmp/pnfs-$$
+       pf=`echo $2 | awk -F: '{ print $1 }'`
+       ct=`echo $2 | awk -F: '{ print $2 }'`
+       id=`find_string $pf`
+       if [ $? -ne 0 ] ; then exitNF $2 ; fi
+       touch $tmp
+       md frompnfs $tmp $id $ct
+       vi $tmp
+       md topnfs $tmp $id $ct
+       rm $tmp
+     ;;
+   unixtopnfs)
+       if [ $# -ne 3 ] ; then 
+          echo "USAGE : unixtopnfs <unixPath> <pnfsPath>"
+          exit 1
+       fi
+       pf=`echo $3 | awk -F: '{ print $1 }'`
+       ct=`echo $3 | awk -F: '{ print $2 }'`
+       id=`find_string $pf`
+       if [ $? -ne 0 ] ; then exitNF $3 ; fi
+       md topnfs $2 $id $ct
+     ;;
+   pnfstounix)
+       if [ $# -ne 3 ] ; then 
+          echo "USAGE : pnfstounix <pnfsPath> <unixPath>"
+          exit 1
+       fi
+       pf=`echo $2 | awk -F: '{ print $1 }'`
+       ct=`echo $2 | awk -F: '{ print $2 }'`
+       id=`find_string $pf`
+       if [ $? -ne 0 ] ; then exitNF $2 ; fi
+       md frompnfs $3 $id $ct
+     ;;
+   rm)
+       if [ $# -ne 2 ] ; then 
+          echo "USAGE : rm <path>"
+          exit 1
+       fi
+       dir=`dirname $2`
+       fl=`basename $2`
+       id=`find_string $dir`
+       if [ $? -ne 0 ] ; then exitNF $dir ; fi
+       md rm $id $fl
+     ;;
+   rmdir)
+       if [ $# -ne 2 ] ; then 
+          echo "USAGE : rmdir <path>"
+          exit 1
+       fi
+       dir=`dirname $2`
+       fl=`basename $2`
+       id=`find_string $dir`
+       if [ $? -ne 0 ] ; then exitNF $dir ; fi
+       md rmdir $id $fl
+     ;;
+   link)
+       if [ $# -ne 3 ] ; then 
+          echo "USAGE : link <path> <id>"
+          exit 1
+       fi
+       dir=`dirname $2`
+       fl=`basename $2`
+       id=`find_string $dir`
+       if [ $? -ne 0 ] ; then exitNF $dir ; fi
+       md addtodirectory $id $fl $3
+     ;;
+   mkdir)
+       if [ $# -ne 2 ] ; then 
+          echo "USAGE : mkdir <path>"
+          exit 1
+       fi
+       dir=`dirname $2`
+       fl=`basename $2`
+       id=`find_string $dir`
+       if [ $? -ne 0 ] ; then exitNF $dir ; fi
+       md mkdir $id $fl
+     ;;
+   mkfile|touch)
+       if [ $# -ne 2 ] ; then 
+          echo "USAGE : touch <path>"
+          exit 1
+       fi
+       dir=`dirname $2`
+       fl=`basename $2`
+       id=`find_string $dir`
+       if [ $? -ne 0 ] ; then exitNF $dir ; fi
+       md mkfile $id $fl 0
+     ;;
+   permission)
+       if [ $# -ne 3 ] ; then 
+          echo "USAGE : permission <path> <perm> "
+          exit 1
+       fi
+       dir=`dirname $2`
+       fl=`basename $2`
+       id=`find_string $dir`
+#       echo " dir $dir file $fl id $id"
+       md permission $id $fl $3
+     ;;
+   *) ;;
+esac

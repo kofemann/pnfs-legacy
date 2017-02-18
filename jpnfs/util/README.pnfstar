@@ -1,0 +1,37 @@
+#
+#
+#   Purpose :
+#
+# i) converts a pnfs subdirectory tree into an ascii
+#    text file, containing pnfsid, filename, filesize,
+#    meta data and content of level 1-7. 
+#    WARNING :
+#      The possible content of level 0 is ignored.
+#      Symbolic links  are not handled correctly.
+#
+#
+# ii) Recreates a subdirectory tree from the
+#     ascii text file produced by the same tool.
+#
+#  
+#   Syntax
+#
+#     java -jar /usr/bin/pnfstar.jar cf  /tmp/textfile.ptar .
+#
+#     Creates the text file /tmp/textfile.ptar reflecting
+#     the content of the pnfs subdirectory tree starting
+#     in the current working directory (.) .
+#
+#     java -jar /usr/bin/pnfstar.jar xf  /tmp/textfile.ptar
+#
+#     Inflates the content of t/tmp/textfile.ptar by creating
+#     the full pnfs subdirectory tree.
+#
+#     java -jar /usr/bin/pnfstar.jar xvf  /tmp/textfile.ptar
+#
+#     Same as above but prints 'oldpnfsid newpnfsid filename'
+#     to stdout for each file created.
+#
+
+
+

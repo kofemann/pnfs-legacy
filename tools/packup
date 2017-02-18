@@ -1,0 +1,109 @@
+#!/bin/sh
+#
+backdir=/usr/db/pnfs/DB/backup
+setup=/usr/etc/pnfsSetup
+#
+if [ ! -f $setup ] ; then
+  echo " Can't locate $setup "
+  exit 1
+fi
+. /usr/etc/pnfsSetup
+#
+if [ ! -d $backdir ] ; then
+  echo " Can't locate $backdir "
+  exit 1
+fi
+#
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup " ; exit 1 ; fi
+if [ -z "$database" ] ; then echo " database not found in $setup " ; exit 1 ; fi
+#
+db=$database
+tools=$pnfs/tools
+PATH=$tools:$PATH
+#
+# ----------------------------------------------------------------------
+copy_panic() {
+
+   echo "+-------------------------------------+"
+   echo "|             P A N I C               |"
+   echo "|            ~~~~~~~~~~~              |"
+   echo "|                                     |"
+ printf "|    %-10.10s (%2.2d) NOT Writeable    |\n" $1 $2
+   echo "|                                     |"
+   echo "|          Please Check               |"
+   echo "+-------------------------------------+"
+
+}
+#
+if [ ! -f $db/D-0000 ] ;then echo " Admin not present " ; exit 1 ; fi
+#
+# ----------------------------------------------------------------------
+#
+test_loop_low() {
+  
+ if [ "$status" = "enabled" ] ; then
+  printf " saving %10.10s(%2.2d) mode : %s -> %s %s\n" $name $dbid $mode $fullpath $backdir
+ fi
+
+}
+save_loop() {
+
+for c in $db/D-???? ; do
+  mode=save
+  name=`awk -F: '{ print $1 }' $c`
+  dbid=`awk -F: '{ print $2 }' $c`
+  status=`awk -F: '{ print $4 }' $c`
+  fullpath=`awk -F: '{ print $5 }' $c`
+  
+  save_low
+done
+
+}
+save_low() {
+
+  if [ "$status" = "enabled" ] ; then
+    if [ "$mode" = "save" ] ; then
+      dest=$backdir/`basename $fullpath`
+      printf " !!! Disabling write for datebase $name"
+      $tools/smd exec $dbid disablewrite
+      if [ $? -ne 0 ] ; then
+        printf " ---- Failed\n"
+        exit 1
+      fi
+      printf " ---- Done\n"
+      printf "     Copying $fullpath $dest "
+      cp $fullpath $dest
+      if [ $? -ne 0 ] ; then
+        printf " ---- Failed\n"
+        exit 1
+      fi
+      printf " ---- Done\n"
+      printf "     Enabling write for datebase $name"
+      $tools/smd exec $dbid enablewrite
+      if [ $? -ne 0 ] ; then
+        printf " ---- Failed\n"
+        copy_panic $name $dbid
+        exit 1
+      fi
+      printf " ---- Done\n"
+    else
+      dest=$backdir/`basename $fullpath`.x
+      printf "     Copying $fullpath $dest "
+      cp $fullpath $dest
+      if [ $? -ne 0 ] ; then
+        printf " ---- Failed\n"
+        exit 1
+      fi
+      printf " ---- Done\n"
+    fi
+  fi
+
+return 0
+
+}
+
+# ----------------------------------------------------------------------
+
+mode=save
+#
+save_loop $*

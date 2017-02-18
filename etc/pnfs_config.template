@@ -1,0 +1,5 @@
+PNFS_INSTALL_DIR = /opt/pnfs
+PNFS_ROOT = /pnfs
+PNFS_DB = /opt/pnfsdb
+PNFS_LOG = /var/log
+PNFS_OVERWRITE = no

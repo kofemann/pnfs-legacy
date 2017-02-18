@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#set -x
+setup=/usr/etc/pnfsSetup
+hour_to_trigger="06"
+minute_to_trigger="15"
+#
+if [ ! -f $setup ] ; then exit 1 ; fi
+
+. $setup 1>/dev/null 2>/dev/null
+
+if [ -z "$heartbeat" ] ; then exit 3 ; fi
+x=`echo $heartbeat` >/dev/null 2>/dev/null
+if [ "$x" != "on" ] ; then exit 4 ; fi
+
+if [ -z "$database" ] ; then exit 3 ; fi
+if [ -z "$pnfs" ] ; then exit 3 ; fi
+
+heartbeatOk=$database/lock/heartbeat.minute
+tools=$pnfs/tools
+export tools
+
+if [ ! -f $heartbeatOk ] ; then exit 4 ; fi
+#
+# at this point we are sure :
+#   pnfs is configured ,
+#   heartbeat is configured
+#   heartbeat is enabled
+#
+task_per_day="$tools/pnfsDay day"
+task_per_hour="$tools/pnfsHour hour"
+task_per_minute="$tools/pnfsMinute minute"
+hour=`date +"%H"`
+minute=`date +"%M"` 
+#
+# make tools availble to the execution tasks
+#
+export tools
+#
+if [ "$minute" = "$minute_to_trigger" ] ; then
+  if [ "$hour" = "$hour_to_trigger" ] ; then
+     exec $task_per_day 
+  else
+     exec $task_per_hour 
+  fi
+else
+  exec $task_per_minute
+fi

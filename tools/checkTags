@@ -1,0 +1,247 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+# tries to check the functionality of directory tags.
+#
+#set -x
+#
+minVersion=30102
+#
+#
+this=`pwd`
+bn=tag-check-$$
+ECHO=/bin/echo
+#
+bnDIR=${bn}-root
+tagname=".(tag)(testTAG)"
+waste=/tmp/tagCheck.tmp
+#
+$ECHO "Pnfs Version $minVersion Check directory tags"
+cleanup() {
+  cd $this
+  rm -fr $bnDIR $waste
+  return 0
+}
+cleanupExit() {
+   cleanup
+#   $ECHO "\n\n Cleanup done\n\n"
+   exit 2
+}
+problem(){
+  $ECHO $1
+  cleanup
+  exit 1
+}
+goUp() {
+  $ECHO "Moving up ... \c"
+  cd .. 1>/dev/null 2>/dev/null 
+  if [ $? -ne 0 ] ; then problem " Couldn't cd to .." ; fi
+  $ECHO " OK"
+}
+goDown() {
+  $ECHO "Entering 'sub' ... \c"
+  cd sub 1>/dev/null 2>/dev/null
+  if [ $? -ne 0 ] ; then problem " Couldn't cd to 'sub'" ; fi
+  $ECHO " OK"
+}
+doWait() {
+   $ECHO "Waiting 3 seconds to allow diffent modification times \c"
+   sleep 1 ; $ECHO ".\c" ; sleep 1 ; $ECHO ".\c" ; sleep 1 ; $ECHO ".\c"
+   $ECHO " Ready "
+}
+doVerify() {
+  $ECHO "Verifing content ... \c"
+  x=`cat $tagname 2>/dev/null`
+  if [ $? -ne 0 ] ; then problem " Failed (Tag not found any more)" ; fi
+  $ECHO " Exists ... \c"
+  if [ "$x" != "$1" ] ; then
+    problem " Failed : content changed\n Should be '$1' ; Found : '$x'"
+  fi
+  $ECHO " OK"
+}
+doNegativeVerify() {
+  $ECHO "Verifing existence ... \c"
+  ls -l $tagname 1>/dev/null 2>/dev/null
+  if [ $? -ne 0 ] ; then problem "FAILED : tag gone "; fi
+  $ECHO " exists ... \c" 
+  cat $tagname 1>$waste 2>/dev/null
+  if [ $? -eq 0 ] ; then problem "FAILED : still alive" ; fi
+  $ECHO " no I/O OK"
+}
+
+trap cleanupExit 1 2 3 15
+$ECHO "\n  --- Basic Checks ---\n"
+$ECHO  "Checking for pnfs filesystem ... \c"
+cat ".(const)(x)" 1>$waste 2>/dev/null
+if [ $? -ne 0 ] ; then
+   $ECHO "Not a pnfs filesystem"
+   exit 1
+fi
+$ECHO " OK"
+ver=`awk -F= '{ if($1=="MD2_P_VERSION")print $2 ; }' $waste 2>/dev/null`
+rm $waste
+$ECHO "Found pnfs Version : $ver"
+v=`expr $ver + 0`
+if [ $v -lt $minVersion ] ; then 
+   problem "SORRY : Version not recent enough for most of my checks ($minVersion)"
+fi
+  
+
+$ECHO "Creating temporary directory $bnIDR ... \c"
+mkdir $bnDIR 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then
+   $ECHO " Failed  ( $bnDIR in`pwd`)"
+   exit 1
+fi
+cd $bnDIR 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then
+   $ECHO " Failed : Couldn't cd to $bnDIR "
+   cleanup
+   exit 1
+fi
+$ECHO " OK"
+
+$ECHO "\n  --- Tags : read, write inheritance ---\n"
+
+$ECHO "Creating tag ... \c"
+$ECHO "0123456789" >$tagname 2>/dev/null
+if [ $? -ne 0 ] ; then 
+  $ECHO " Failed"
+  cleanup
+fi
+$ECHO " OK"
+
+$ECHO "Verifing content ... \c"
+x=`cat $tagname 2>/dev/null`
+if [ $? -ne 0 ] ; then 
+  $ECHO " Failed (Tag not found any more)"
+  cleanup
+fi
+$ECHO " Exists ... \c"
+if [ "$x" != "0123456789" ] ; then
+  $ECHO " Failed : content changed "
+  $ECHO " Should be 0123456789 ; Found : $x"
+  cleanup
+  exit 1
+fi
+$ECHO " OK"
+
+$ECHO "Creating subdirectory ... \c"
+mkdir sub 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then problem  " Couldn't create directory 'sub' in `pwd`" ; fi
+$ECHO " OK"
+
+goDown
+
+doVerify "0123456789"
+
+goUp
+
+$ECHO "\n  --- Tags : modifing, multiple inheritance ---\n"
+
+doWait
+
+$ECHO "Modifing primary tag content ... \c"
+$ECHO "4321" >$tagname 2>/dev/null
+if [ $? -ne 0 ] ; then problem " Failed" ; fi
+$ECHO " OK"
+
+doVerify "4321"
+
+goDown
+
+doVerify "4321"
+
+$ECHO "Creating subsubdirectory ... \c"
+mkdir sub 1>/dev/null 2>/dev/null
+if [ $? -ne 0 ] ; then problem " Couldn't create directory 'sub' in `pwd`" ; fi
+
+goUp
+
+
+
+$ECHO "\n  --- Tags : removing primary, inheritance ---\n"
+doWait
+
+$ECHO "Removing priamry tag ... \c"
+rm $tagname 1>/dev/null 2>/dev/null 
+if [ $? -ne 0 ] ; then problem " Couldn't remove tag" ; fi
+$ECHO " OK"
+
+doNegativeVerify
+
+goDown
+
+doNegativeVerify
+
+goDown
+
+doNegativeVerify
+
+goUp
+
+
+$ECHO "\n  --- Tags : modifing pseodo primary, inheritance ---\n"
+doWait
+
+$ECHO "Modifing invalid inherited tag content ... \c"
+$ECHO "new content" >$tagname 2>/dev/null
+if [ $? -ne 0 ] ; then problem " Failed" ; fi
+$ECHO " OK"
+
+doVerify "new content"
+
+goDown 
+
+doVerify "new content"
+
+goUp
+
+$ECHO "\n  --- Tags : removing pseodo primary, inheritance ---\n"
+doWait
+
+$ECHO "Removing pseodo primary tag ... \c"
+rm $tagname 1>/dev/null 2>/dev/null 
+if [ $? -ne 0 ] ; then problem " Couldn't remove tag" ; fi
+$ECHO " OK"
+
+doNegativeVerify
+
+goDown
+
+doNegativeVerify
+
+goUp
+goUp
+
+doWait
+
+$ECHO "Modifing primary tag content ... \c"
+ 
+$ECHO "other content" >$tagname 2>/dev/null
+if [ $? -ne 0 ] ; then problem " Failed" ; fi
+$ECHO " OK"
+
+doVerify "other content"
+goDown
+doVerify "other content"
+goDown
+doVerify "other content"
+
+
+cleanup
+exit 0

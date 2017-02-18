@@ -1,0 +1,75 @@
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+os=`uname -s`
+PS=ps
+SED=sed
+AWK=awk
+JOIN=join
+SORT=sort
+MYID=id
+NAWK=gawk
+
+if [ "$os" = "Linux" ] ; then
+   PATH=$PATH:/bin:/usr/bin
+   spps() { 
+     $PS ax | 
+     $SED 's/ *\([0-9][0-9]*\) .*:[0-9][0-9] /\1 /g;s/[^ ]*\///g'
+     return 0
+   }
+elif [ "$os" = "Darwin" ] ; then
+   PATH=$PATH:/bin:/usr/bin
+   spps() { 
+     $PS axc | 
+     awk '{ print $1,$5 }'
+     return 0
+   }
+elif [ \( "$os" = "IRIX" \) -o \( "$os" = "IRIX64" \) ] ; then
+   PATH=$PATH:/sbin
+   spps() { 
+     $PS -edf | 
+     $SED 's/ *[^ ]* *\([0-9][0-9]*\) .*:[0-9][0-9] /\1 /g;s/[^ ]*\///g'
+     return 0
+   }
+elif [ "$os" = "SunOS" ] ; then
+   rev=`uname -r | awk -F. '{ print $1 }'`
+   if [ $rev -lt 5 ] ; then
+      spps() { 
+        /bin/ps -ax | 
+        /bin/sed 's/ *\([0-9][0-9]*\) .*:[0-9][0-9] /\1 /g;s/[^ ]*\///g'
+        return 0
+      }
+   else
+      PATH=$PATH:/usr/bin
+      spps() { 
+        $PS -edf | 
+        $SED 's/ *[^ ]* *\([0-9][0-9]*\) .*:[0-9][0-9] /\1 /g;s/[^ ]*\///g'
+        return 0
+      }
+   fi
+else
+   echo " Sorry can't run with OS : $os"
+   exit 1
+fi 
+#
+# and some general tools
+#
+ckr() {
+  ID=`$MYID | grep "0(root)"`
+  if [ -z "$ID" ] ; then
+    echo " You need to be root .... "
+    exit 1
+  fi
+}

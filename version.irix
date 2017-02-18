@@ -1,0 +1,15 @@
+CC=gcc
+LEX=lex
+VERSION=V3.1.8
+MTYPE=irix
+VCFLAGS=-g -Dsunos
+UCBLIB=
+RPCSOCLIB=
+GDBASE=-L../gdb/gdbm-1.7.3 -lgdbm
+GDBASEINC=-I../gdb/gdbm-1.7.3
+OBJECTS=irix
+RANLIB=echo
+#
+#  Platform specific 64-bit freopen() command.
+#
+FREOPEN64=freopen64

@@ -1,0 +1,32 @@
+CC=gcc
+LEX=/usr/bin/flex
+AR=/usr/bin/ar
+RANLIB=/usr/bin/ranlib
+VERSION=V3.1.9
+POSTGRES=db_psql-hash.o db_psql-easy.o
+MTYPE=darwin
+EXTRA=-DMD_FLAGS_INHERIT
+TIMEOUTS=-DPOST_TIMEOUT=3 -DSCL_CRITICAL_TIMEOUT=5 -DNO_ANSWER_ON_TIMEOUT
+VCFLAGS=-g -DOSXCLIENT -D_BIG_ENDIAN -DUSE_FLEX -Dhonour_gids  -DMV_ALLOWED ${TIMEOUTS} ${EXTRA}
+#VCFLAGS=-g -Dsunos -DDEBUG -D_LITTLE_ENDIAN -DUSE_FLEX -Dhonour_gids  -DMV_ALLOWED ${TIMEOUTS} ${EXTRA}
+#
+#   -DSCL_CRITICAL_TIMEOUT=60
+#   -DNO_ANSWER_ON_TIMEOUT
+#   -DPOST_TIMEOUT=60
+#
+UCBLIB=
+RPCSOCLIB=
+#GDBASE=-lgdbm
+GDBASE=../../gdbm/gdbm-1.8.3/.libs/libgdbm.a
+GDBASEINC=-I../../gdbm/gdbm-1.8.3
+OBJECTS=darwin
+#
+# db_gdbm-journal-easy.o db_gdbm-hash.o db_gdbm-easy.o db_dynamic.o
+#
+db_impl=db_gdbm-hash.o
+db_impl=${POSTGRES}
+#db_impl=db_dynamic.o
+#
+#  Platform specific 64-bit freopen() command.
+#
+FREOPEN64=freopen64

@@ -1,0 +1,575 @@
+pnfsDump: a utility to scan the PNFS namespace
+
+
+The pnfsDump utility allows the site admin to scan an existing PNFS
+instance independently of the NFS daemons.  It may be used whilst the
+NFS service is in use as long as certain conditions are verified.
+
+
+   **  Please note that running pnfsDump will access the        **
+   **  underlying database.  It is common that database access  **
+   **  latency is the limiting factor for PNFS performance, so  **
+   **  running pnfsDump may impact other activity, such as a    **
+   **  running dCache instance.  Options that affect this are   **
+   **  discussed below.                                         **
+
+
+Requirements for running pnfsDump:
+
+  o  the underlying database is accessible (e.g., PostGreSQL daemons
+     are running),
+  o  the PNFS dbserver daemons are running,
+  o  there is a free "client slot" within the shared-memory interface.
+  o  pnfsDump is run as the same user PNFS is running under; typically,
+     this is root.
+
+
+
+Free "client slots" in PNFS.
+
+
+PNFS uses shared memory to allow the NFS daemons (pmountd and pnfsd)
+to communicate with the database abstraction layer (the dbserver
+daemons).  Within the shared-memory communication layer, the pmountd
+and pnfsd daemons are clients and the dbserver daemons are servers.
+
+The shmcom utility is used to configure the shared-memory
+communication.  The following command lists the maximum number of
+concurrent client and server connections:
+
+   /opt/pnfs/tools/shmcom stat 1122|egrep '^(Client|Server)'
+
+The value 1122 is the shared-memory key.  The correct value is
+recorded in pnfsSetup file (typically /usr/etc/pnfsSetup) as the
+shmkey parameter.
+
+The output from running the command should look similar to:
+
+   Clients    8
+   Servers    8
+
+This indicates that, at most, eight clients can connect.  If a single
+pmountd daemon is running and seven nfsd daemons then there are no
+free shared-memory client slots available.
+
+The number of client slots made available is controlled by the
+shmclients parameter in the pnfsSetup file.  If there are insufficient
+client slots to allow pnfsDump to connect you will receive the
+following error:
+
+  Problem : sclClientOpen  Shm Allocation Error (-337)(0)
+
+If this happens, verify that the number of client slots is
+insufficient; if so, increase the value of shmclients and restart
+PNFS.
+
+
+
+Command-line options for pnfsDump
+
+
+The pnfsDump utility accepts arguments of the form:
+
+  ./pnfsDump [generic options] <output format> [output options]
+
+The following example uses "-o /dev/null" for the [generic options],
+"verify" for <output format> and "-f" for the [output options].
+
+  ./pnfsDump -o /dev/null verify -f
+
+The following are valid generic options:
+
+  -r <root pnfsId>   -- the PNFS ID of the root directory.  When the
+                        option is given, only items under the
+                        directory indicated will be scanned.  Without
+                        this option, all of PNFS is scanned.  The
+                        '.(id)' command may be used to determine the
+                        PNFS ID of a directory; for example, to dump
+                        everything underneath directory foo/bar/baz
+                        and if:
+
+                            $user cat 'foo/bar/.(id)(baz)'
+                            000200000000000000001060
+
+			then the option "-r 000200000000000000001060"
+			will limit the dump to the contents of
+			foo/bar/baz directory, including all
+			subdirectories.
+			
+
+  -d <delay>        --  the delay, in milliseconds, introduced after
+                        every 100 database operations.  This is to
+                        allow other clients (such as the NFS daemons)
+                        to query the namespace.
+
+                        If not specified, a default value of 100 ms is
+			used.  This is a safe value but acquiring
+			large amounts of data will require a large
+			run-time.
+
+ 			Most sites will be able to run with a
+ 			significantly lower delay: a value of 10 ms or
+ 			less may be appropriate.  The optimum value
+ 			will be site-specific and some experimentation
+ 			may be required.  Be sure to monitor
+ 			PnfsManager's queue lengths if running
+ 			pnfsDump on a live system for extended
+ 			periods.
+
+			A value of 0 switches off the delay, allowing
+			the fastest operating time.  This should still
+			allow the NFS daemons access to the database,
+			albeit with a significantly larger delay.  Use
+			this value with caution.
+
+  -m <max retries>  --  the number of times pnfsDump should attempt a
+                        database operation before giving up and moving
+                        on to the next operation.  By default pnfsDump
+                        will never give up.  Using this option will allow
+                        pnfsDump to always complete, albeit with the risk
+                        that some entries will be missed.
+
+  -o <output file>  --  redirects output to the named file.  This is
+                        equivalent to redirecting stdout to the named file.
+
+  -p                --  Toggle "paranoid mode".  This mode is off by default.
+                        Each time '-p' is specified paranoid mode is switched
+                        either on or off.
+
+			Paranoid mode double-checks values.  Currently
+			this is limited to verifying that the
+			file-length recorded in PNFS is consistent
+			with the value recorded in the Level-2
+			metadata.  NB. there are known cases where
+			this inconsistency may arise: pnfsDump will
+			behave as dCache does, so reported
+			discrepancies are not likely to be a problem.
+
+  -a <read-head> --     when undertaking database scanning, multiple
+                        directory entries may be requested.  If not
+                        specified, a default value of four is used.
+                        This is unlikely to provide much performance
+                        benefit, so using the default value is
+                        recommended.
+
+  -s <shm key>      --  Specifies what shared-memory key should be
+                        used.  The value is a hexadecimal value.  If
+                        not specified, 1122 is used.
+
+  -v                --  Increase the amount of incidental output from
+                        pnfsDump.  This option may be repeated (up to
+                        a total of three times) for additional output.
+
+  -V                --  Provide the version number of pnfsDump, then exit.
+
+
+
+Paranoid mode:
+
+
+Whilst parsing the data, the pnfsDump utility will check that the
+information stored in PNFS is self-consistent.  By default, it does
+this will what information is available: no additional database
+accesses are triggered to validate data.  With "paranoid mode"
+enabled, further database accesses may be required to allowing all
+consistency checks, resulting in a potentially longer run-time.
+
+For the xml, simple and syncat with checksums (-k option) output
+options, enabling paranoid mode has no effect.  For all other output
+types, enabling paranoid mode will result in a longer running time.
+
+
+
+Output from pnfsDump:
+
+
+The output from pnfsDump consists of two parts: information about the
+pnfs filesystem and information about the process of gathering that
+information (for example, error messages when trying to connect to the
+shared-memory interface).
+
+Information about the PNFS filesystem is provided on stdout.  The
+format of this information is described by the <output format>
+parameter and any options that follow it.  You may store this output
+by redirecting stdout to a file or (equivalently) by using the -o
+option.  More details are given below.
+
+The information on how pnfsDump is progressing is provided on stderr.
+By default, only essential information is provided, but increased
+information is available by specifying one or more "-v" option
+switches.
+
+The effect of increasing the number of "-v" options is described
+below:
+
+
+  No "-v"s	---	outputs only "hard" errors: those that affect
+			pnfsDump's ability to produce correct output.  These
+			may be recoverable (e.g., by skipping the affected file)
+			or fatal (e.g., can't access the dbserver).
+
+  Single "-v"	---	gives a short summary of various statistics after
+			pnfsDump has finished, either at the end of a run
+			or when Ctrl+C is pressed.  The statistics are described
+			below
+
+  Two "-v"s   	---	in addition to above, some "harmless" inconsistencies
+			are reported.
+
+  Three "-v"s 	---	in addition to above messages, at (roughly) periodic
+			interval, a line is emitted that states how quickly
+			pnfsDump is processing data.
+
+
+
+Statistics:
+
+
+The final statistics includes a number of counters that indicate the work that
+was undertaken and also shows if there were any problems; these counters are:
+
+  nDir:     the number of directories processed,
+  nFile:    the number of files processed,
+  nUnknown: the number of inodes of an unknown type (should be zero),
+  nSkipped: the number of inodes (files or directories) skipped because
+            pnfsDump was unable to fetch their inode record. (should be
+            zero),
+  Major DB errors: the number of database errors resulting in an unknown
+            number of entries being skipped (should be zero),
+  Cache queries: number of attempts to query cached values; this may be
+            zero if the output format does not require cache-queries.
+
+If "Major DB errors" is zero, then Total (the sum of nDir, nFile, nUnknown and
+nSkipped) should be constant over different runs of pnfsDump with the same PNFS
+database.
+
+
+
+Output formats:
+
+
+The <output format> parameter is required and must be one of the
+following:
+
+    simple null xml syncat files verify chimera
+
+These output formats are explained below.
+
+
+simple:  accepts no arguments
+
+  provides many elements of the PNFS format in a "simple" ASCII
+  format.  This format is not intended for general consumption.
+
+
+null:  accepts no arguments
+
+  provides no output but exercises the underlying PNFS scanning
+  engine.  May be useful for benchmarking performance of the
+  underlying database.
+
+
+xml:     [-a] [-r]
+
+  provides a complete dump of PNFS information in an XML format.
+
+  The options are:
+
+    -a           --  report file access-latency values.
+
+    -r           --  report file retention-policy values
+
+  Please note that access-latency and retention-policy information is
+  derivable from other data in the xml output and from the
+  dCacheConfig file.  If the dCacheConfig file is needed and
+  /opt/d-cache/setup/dCacheSetup is not accessable then a warning is
+  generated.
+
+  Specifying -a or -r may increase the time taken to complete the
+  dump.
+
+
+syncat:  [-p <prefix>] [-s] [-a] [-c] [-m] [-k] [-r]  [<VO1> [<VO2>] ...]
+
+  provides information about PNFS in a namespace-independent format.
+
+  The options are:
+
+    -p <prefix>  --  prefix all reported namespace entries by <prefix>;
+                     for example, an entry dir1/file1 (relative to the
+		     root) is reported when -p /dir-a/dir-b is used as
+ 		     /dir-a/dir-b/dir1/file1
+
+    -s           --  report file size information.  This option may
+                     increase the time taken to complete the dump; it
+                     depends on how many files have greater size than
+                     2 GiB.
+
+    -a           --  report file last-access time.
+
+    -c           --  report file creation time.
+
+    -m           --  report file last-modified time.
+
+    -k           --  report file checksum values.  This will increase
+                     the time taken to complete the dump.
+
+    -r           --  report file access-latency and retention-policy.  This
+                     will increase the time taken to complete the dump.  It
+                     may also require the dCacheSetup file to be parsed 
+                     (/opt/d-cache/setup/dCacheSetup).  A warning is generated
+                     if an attempt is made to parse this file and it is
+                     missing.
+
+    <VO>         --  indicate for which VO the dump is being made.  This
+                     option may be repeated to indicate multiple VOs.
+
+
+files:  [-p <prefix>] [-l | -s] [-f] [-d] [-a] [-r] [-h <HSM type>]
+
+  provides information about files: a single line per file.  The PNFS
+  Id of the file and of its containing directory are optionally
+  included.  The output format is:
+
+  [<ID of file> ][<ID of dir> ][<path of dir>/]<filename>
+
+  The options are:
+
+    -p <prefix>   -- prefix all reported namespace entries by <prefix>
+
+    -l            -- report absolute path with each entry (default)
+
+    -s            -- report the filename without the absolute path.
+
+    -f            -- toggle whether to report the file's PNFS Id (default
+                     is not to).
+
+    -d            -- toggle whether to report the file's directory PNFS Id.
+    		     (default is not to).
+
+    -a            -- toggle whether to report the file's Access Latency.
+
+    -r            -- toggle whether to report the file's Retention Policy.
+
+    -h <HSM type> -- toggle whether to report a file's storage status.
+                     Generating this output is HSM-specific.  Currently
+		     there is support for OSM.
+
+  Specifying -a or -r will result in pnfsDump taking longer to process
+  the PNFS data.  Also, specifying -a or -r may result in the file
+  /opt/d-cache/setup/dCacheSetup being read to discover the configured
+  default Access Latency and Retention Policy values.
+
+
+verify: [-p <path> | -r] [-l] [-t] [-f] [-d]
+
+  provides a series of "MD5 checksum" values of the output from
+  various dot-commands.  This output may be used by the md5sum program
+  to verify PNFS' metadata.  This will evaluate the MD5 checksums for
+  various metadata values and compare them with the values calculated
+  by pnfsDump.  To conduct this verification one must have the PNFS
+  structure mounted.
+
+  One of the -p and -r options must be specified.  This determines how
+  the files are referred to in the output.
+
+  If -r option is specified then files are recorded relative to the
+  PNFS root directory or the directory specified using the generic -r
+  option.  When checking the values, the current-working directory
+  must correspond either to the PNFS root or the directory
+  corresponding to the directory specified with the generic -r option.
+
+  If -p option is specified then the option value should be the
+  mount-point of the PNFS root or the absolute path to the directory
+  specified by the generic -r option.  The recorded files will be
+  absolute so the current-working directory when checking the metadata
+  is irrelevant.
+
+  The options -l, -t, -f and -d add checks for certain elements of
+  PNFS metadata.  The -l option adds checks for the contents of any
+  level metadata files may have; -t checks for primary and
+  pseudo-primary tag definitions; -f checks for the PNFD-ID of files;
+  -d checks for the PNFS-ID of directories.
+
+  By default all checks are emitted.  If one or more check-type are
+  specified, then only those checks specified are emitted.  Additional
+  check-type options result in toggling whether the checks are
+  emitted.
+
+  Example usages: 
+
+    user$ cat '/pnfs/example.org/data/.(id)(atlas)'
+    000200000000000000001060
+
+    user$ pnfsDump -r 000200000000000000001060 -o /tmp/atlas-rel.md5sums verify -r
+    user$ cd /pnfs/example.org/data/atlas
+    user$ md5sum -c /tmp/atlas-rel.md5sums | grep -v :\ OK$
+    user$ echo $?
+    0
+
+    user$ pnfsDump -r 000200000000000000001060 -o /tmp/atlas-abs.md5sums verify -p /pnfs/example.org/data/atlas
+    user$ md5sum -c /tmp/atlas-abs.md5sums | grep -v :\ OK$
+    user$ echo $?
+    0
+
+
+chimera: [-1 | -2] [-f] [-p <Chimera root ID>]
+
+  emits the PNFS structure as a sequence of SQL statements that are
+  suitable for injecting into PostGreSQL.
+
+  The -p option specifies the ID of the directory data will be added
+  directly underneath.  It corresponds to the PNFS root directory:
+  either the absolute root directory or the root directory specified
+  by the generic -r option.  If -p is not specified, the absolute root
+  directory of Chimera is used.
+
+  Under normal circumstances, the Chimera root ID will be a
+  Chimera-generated directory.  These IDs have 36 characters.  In
+  contrast, PNFS IDs have 24 characters.  By default, pnfsDump will
+  reject an ID that isn't 36 characters long as this is most likely a
+  mistake.  However, it is possible that one wishes to merge data from
+  PNFS within another restored tree.  If so, the -f option must be
+  specified before the -p option to allow a PNFS ID as the value to
+  the -p option.
+
+  In the following example, the entries in the PNFS directory
+  /pnfs/example.org/data/atlas are migrated so they are underneath the
+  Chimera directory /chimera/example.org/data/atlas.  The Chimera data
+  is stored in the PostGreSQL database "chimera", to which we assume
+  the user has access.
+
+    user$ cat '/pnfs/example.org/data/.(id)(atlas)'
+    000200000000000000001060
+
+    user$ mkdir -p /chimera/example.org/data/atlas
+    user$ cat '/chimera/example.org/data/.(id)(atlas)'
+    87d675900654121da8f656cbeff0f6231552
+
+    user$ pnfsDump -r 000200000000000000001060 -o /tmp/atlas.sql chimera -p 87d675900654121da8f656cbeff0f6231552
+    user$ psql chimera < /opt/pnfs/share/sql/prep-chimera-for-migration.sql
+    user$ psql chimera < /tmp/atlas.sql
+
+  If this procedure is repeated, please note that the SQL in
+  /opt/pnfs/share/sql/prep-chimera-for-migration.sql is only needed
+  before the first time.
+
+
+   **                                                            **
+   **  NB. The resulting SQL will fail to migrate tags that      **
+   **  inherit from a directory other than one of its parent     **
+   **  directories.  This can happen only if a subdirectory is   **
+   **  moved to somewhere outside the directory where the tag    **
+   **  was assigned a value.                                     **
+   **                                                            **
+   **  For example, if tags are assigned in directories dir-a    **
+   **  and dir-a/dir-b and directory dir-a/dir-b/dir-c is        **
+   **  moved to dir-a/dir-c then the migration process will      **
+   **  fail to include any tags inherited from directory         **
+   **  dir-a/dir-b, but will include tags inherited from         **
+   **  directory dir-a.                                          **
+   **                                                            **
+   **  We believe such directory movement is an uncommon         **
+   **  practice; however, we strongly recommend the output       **
+   **  from verify output is used to check all tags are present  **
+   **  in the new Chimera data                                   **
+   **                                                            **
+
+
+  If a file has explicit access latency or retention policy
+  information specified then, in PNFS, this information is stored in
+  the level-2 metadata.  In Chimera, file-specific access latency and
+  retention policy information is stored in a separate table or
+  tables, depending on which Chimera schema is in use: version 1
+  stores this information in a single table, version 2 stores it in
+  two tables.
+
+  pnfsDump will migrate this information from the level-2 metadata to
+  the Chimera table(s).  To do this it needs to choose which Chimera
+  schema version is in use.  Chimera schema version 1 is in use prior
+  to dCache v1.9.2; version 2 is in use after that.
+
+  For version 2 of Chimera schema, adding file access-latency and
+  retention-policy information is easy; for version 1 of the schema it
+  is harder since both access-latency and retention-policy must be
+  stored in Chimera if either value is to be recorded.
+
+  If a file's access-latency and retention-policy values are specified
+  by SRM then both values must be specified by the SRM client, so both
+  values will be always recorded against the file.  Therefore, we
+  don't anticipate having many files that have only one attribute
+  specified.
+
+  However, it is still possible that a file has only one of the two
+  attributes specified: having access-latency specified but not
+  retention-policy or visa versa.  This is possible if a precious file
+  is stored in a directory with an "accesslatency" tag but no
+  "retentionpolicy" tag or visa versa.
+
+  Should only one file attribute be specified and if Chimera schema
+  version 1 is in use, pnfsDump must discover the missing value to
+  populate the Chimera table.  To do this, pnfsDump will follow dCache
+  behaviour: if a tag corresponding to the missing information (either
+  "accesslatency" or "retentionpolicy") is present its value
+  is used otherwise a system-wide value is used.
+
+  By default, dCache's system-wide access-latency and retention-policy
+  values are Custodial,Nearline but this may be adjusted using the
+  DefaultRetentionPolicy and DefaultAccessLatency parameters in the
+  dCacheSetup file.
+
+  pnfsDump will read the /opt/d-cache/config/dCacheSetup file if the
+  system-wide default access-latency or retention-policy values are
+  needed.  A warning is emitted if these values be needed and no
+  dCacheSetup file can be read.
+
+  Further details about the PNFS-Chimera migration process can be found at:
+
+  http://trac.dcache.org/trac.cgi/wiki/pnfsDump2MigratePnfs2Chimera
+
+
+
+Using pnfsDump for catalogue synchronisation:
+
+
+The syncat output is designed to facilitate catalogue synchronisation.
+In simple cases, a complete dump is obtained by specifying the syncat
+output:
+
+  pnfsDump -o /tmp/complete-dump.syncat syncat
+
+This provides a list of names only, additional information may be
+added:
+
+  pnfsDump -o /tmp/complete-dump.syncat syncat -skc
+
+It's also possible to dump only part of the namespace.  To do this
+you must know the PNFS Id of the directory.  If PNFS is mounted as
+/pnfs, and the dump is to include only /pnfs/data/example.org/dteam
+then the following should work:
+
+  #  Path within PNFS to dump
+  dump-from=/pnfs/example.org/data/dteam
+
+  dirpath=$(dirname $dump-from) 
+  dirname=$(basename $dump-from)
+
+  pnfsDump -r "$(cat $dirpath/.(id)($dirname)" -o /tmp/dteam-dump.syncat syncat -skc -p $dump-from
+
+With syncat it is possible to specify for which VO (or VOs) the dump
+is made.  This is a simple annotation that does not otherwise affect
+the output.  Supplying VO information is optional but recommended.
+
+Assuming one wishes to dump all data owned by a VO, which is located
+within a directory like /pnfs/example.org/data/VO-name, then the
+following should work:
+
+  #  Which VO to dump for
+  VO = dteam
+
+  datapath=/pnfs/example.org/data
+
+  pnfsDump -r "$(cat $datapath/.(id)($VO)" -o /tmp/dteam-dump.syncat syncat -skc -p $datapath/$VO $VO
+
+
+

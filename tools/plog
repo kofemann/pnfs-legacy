@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+SETUP=/usr/etc/pnfsSetup
+SIZELIMIT=3000000
+BOUNDS=counter.pnfsd.log
+#
+if [  ! -f $SETUP ] ; then exit 0 ; fi
+. $SETUP
+#
+if [ -z "$pnfsdLog" ] ; then exit 0 ; fi
+#
+x=`find $pnfsdLog -size +${SIZELIMIT}c -print 2>/dev/null`
+if [ -z "$x" ] ; then 
+  echo " $pnfsdLog not yet large enough"
+  exit 0 
+fi
+#
+base=`dirname $pnfsdLog`
+BOUNDS=$base/$BOUNDS
+if [ ! -f $BOUNDS ] ; then exit 0 ; fi
+counter=`cat $BOUNDS | awk '{ print $1 }'`
+newlog=${pnfsdLog}.x$counter
+if [ -f $newlog ] ; then exit 0 ; fi
+if [ -f ${newlog}.Z ] ; then exit 0 ; fi
+nc=`expr $counter + 1 2>/dev/null` 
+if [ $? -ne 0 ] ; then exit 0 ; fi
+echo $nc >$BOUNDS
+cp $pnfsdLog $newlog
+cp /dev/null $pnfsdLog
+compress $newlog
+exit 0

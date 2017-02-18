@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+#  root  fs  real         usr
+#  root  fs  real         usr    sw
+#  root  fs  real         usr    sw   sun4m  
+#  root  fs  real         usr    sw   sun4m SunOS 
+#  root  fs  real         usr    sw   sun4m SunOS  4.1.3
+#  root  fs  real         usr    sw   sun4m SunOS  4.1.3  bin
+#  root  fs  real         usr    sw   sun4m SunOS  5.4
+#  root  fs  real         usr    sw   sun4m SunOS  5.4    bin
+#  root  fs  real         usr    sw   sun4m SunOS  5.5
+#  root  fs  real         usr    sw   sun4m SunOS  5.5    bin
+#  root  fs  real         usr    sw   IP19
+#  root  fs  real         usr    sw   IP19  IRIX
+#  root  fs  real         usr    sw   IP19  IRIX   5.3
+#  root  fs  real         usr    sw   IP19  IRIX   5.3    bin
+#  root  fs  real         usr    sw   IP19  IRIX   6.2
+#  root  fs  real         usr    sw   IP19  IRIX   6.2    bin
+#  root  fs  real         usr    sw   (bin->/<mp>/usr/sw/<hw>/<os>/<ver>/bin)
+#
+#  root  fs  config       (env.conf)
+#  root  fs  config       hosts
+#  root  fs  real         usr      acs
+#  root  fs  real         usr      trash
+#
+#  root  fs  Mountpoints  <prio-1:/root/fs{prio}>
+#
+#  root  fs  Mountpoints  generic  <real-usr->/root/fs/real/usr>
+#  root  fs  Mountpoints  generic  <usr->/root/fs/real/usr{0,noio}>
+#  root  fs  Mountpoints  generic  <usr->/root/fs/real/usr-1{1}>
+#
+#
+pnfs=pnfs
+tmpfile=/tmp/pnfs-$$
+#set -x
+#
+fsid=`md getid /root/fs  | cut -d" " -f1`
+#
+real=`$pnfs   mkdir  /root/fs/real         | cut -d" " -f1`
+echo "$real  /root/fs/real"
+mp=`$pnfs     mkdir  /root/fs/Mountpoints  | cut -d" " -f1`
+echo "$mp  /root/fs/Mountpoints"
+config=`$pnfs mkdir  /root/fs/config       | cut -d" " -f1`
+echo "$config  /root/fs/config"
+#
+generic=`$pnfs mkdir /root/fs/Mountpoints/generic | cut -d" " -f1`
+realusr=`$pnfs mkdir /root/fs/real/usr            | cut -d" " -f1`
+trashdx=`$pnfs mkdir /root/fs/real/usr/trash      | cut -d" " -f1`
+acsdirx=`$pnfs mkdir /root/fs/real/usr/acs        | cut -d" " -f1`
+acstest=`$pnfs mkdir /root/fs/real/usr/acs/test   | cut -d" " -f1`
+#
+#
+$pnfs link /root/fs/Mountpoints/prio-1           $fsid    >/dev/null
+$pnfs link /root/fs/Mountpoints/generic/real-usr $realusr >/dev/null
+$pnfs link /root/fs/Mountpoints/generic/usr      $realusr >/dev/null
+$pnfs link /root/fs/Mountpoints/generic/usr-1    $realusr >/dev/null
+#
+$pnfs permission /root/fs/Mountpoints/prio-1             300
+$pnfs permission /root/fs/Mountpoints/generic/usr        238
+$pnfs permission /root/fs/Mountpoints/generic/usr-1    F0209
+#
+envconf=`$pnfs mkfile /root/fs/config/env.conf  | cut -d" " -f1`
+#
+# the configuration file
+#
+cat >$tmpfile <<!
+mountpoints=/root/fs/Mountpoints
+hosts=/root/fs/config/hosts
+deletes=/root/fs/real/usr/trash
+!
+$pnfs unixtopnfs $tmpfile /root/fs/config/env.conf
+#
+# the example template file
+#
+cat >$tmpfile <<!
+# template file for OSM access
+#  use only SPACE NOT TABS !!! to delimit entities
+#
+StoreName       ifh
+StorageGroup    test
+Info            TEST-Data
+MigrationPath   default
+Host            jupiter
+RetensionTime   1
+!
+$pnfs touch "/root/fs/real/usr/acs/test/.(tag)(sGroup)"
+$pnfs touch "/root/fs/real/usr/acs/test/.(tag)(sTemplate)"
+$pnfs unixtopnfs $tmpfile "/root/fs/real/usr/acs/test/.(tag)(sTemplate)"
+group=`awk '{ if( $1 == "StorageGroup" )print $2 }' $tmpfile`
+echo $group >$tmpfile
+$pnfs unixtopnfs $tmpfile "/root/fs/real/usr/acs/test/.(tag)(sGroup)"
+rm $tmpfile

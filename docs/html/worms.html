@@ -1,0 +1,92 @@
+<html>
+<head><title>The pnfs Wormholes</title>
+</head>
+<body bgcolor=white>
+<h1>The Pnfs Wormholes</h1>
+Pnfs Wormholes are a kind of hardlink from each directory 
+inside pnfs to one directory inside pnfs which doesn't need
+to be mounted. We are using this feature to influence the
+behaviour of HSM applications from one central point 
+(directory) independently of the actual mountpoint
+the corresponding host has chosen.
+Wormholes are assigned 'per database' which means that
+the wormhole of directory trees of two different databases may point
+to different targets. (which is very unlikely to happen).
+There is a small set of things you have to prepare to 
+make wormholes available.
+<ul>
+<li>Create the root of all config directories.
+<li>Get the pnfsID of that directory entry.
+<li>Create all necessary subdirectories of the root config directory you need.
+    Only those directories can be accessed through the wormholes.
+<li>Assign the pnfsID of the wormhole target to all your 
+    databases using 'sclient'.<br>
+    sclient getroot &lt;shmkey&gt; &lt;databaseID&gt; &lt;pnfsID&gt;<br>
+    where  &lt;shmkey&gt; is the shared memory key of your pnfs system
+    as specified in /usr/etc/pnfsSetup, &lt;databaseID&gt; is the
+    database identifier ( not the name ) of the database you want to
+    assign to this wormhole and &lt;pnfsID&gt; is the 
+    pnfsID of the root config directory.
+<li>Now you may access all subdirectories of the config root 
+    via .(config)(&lt;subdir&gt;) whereever you are in pnfs.
+</ul>
+What you need to know
+<ul>
+<li>There is no need to restart any of the deamons after setting or
+    resetting the root config pointer with 'sclient'.
+<li>The wormhole will always point to the directory
+    with the specified pnfsID. A rename won't change this
+    fact because the pnfsID will stay with the directory
+    whatever name it may have. 
+<li>Removing the config root directory and creating a
+    new one without redoing the procedure above will
+    let the .(config) link point to void.
+<li>The actual configuration directories below the root config
+    directory are referenced by name and not by pnfsID.
+<li>Whenever you create a new database you have to remember
+    to get install the wormhole link. It won't be automatically 
+    done by 'mdb create ...'.
+</ul>
+<h4>Example</h4>
+<blockquote>
+<pre>
+#
+# create the config root
+#
+mkdir -p /pnfs/fs/admin/etc/configdir
+#
+# get the pfnsID of configdir
+#
+pnfsID=`cat /pnfs/fs/admin/etc/.(id)(configdir)`
+#
+#  create the actual configuration directories below configdir
+#
+mkdir /pnfs/fs/admin/etc/configdir/tools
+mkdir /pnfs/fs/admin/etc/configdir/flags
+#
+# asign the config directory to the databases.
+# lets say we have 4 databases 0...3
+# and our $shmkey is 1122 
+#
+for c in 0 1 2 3 ; do
+  $pnfs/tools/sclient getroot 1122 $c $pnfsID
+done
+#
+# from now on 
+# .(config)(tools) will point to /pnfs/fs/admin/etc/configdir/tools  and
+# .(config)(flags) will point to /pnfs/fs/admin/etc/configdir/flags
+#
+#    ask the database for the installed wormhole link
+#    ( just omit the last argument )
+#
+for c in 0 1 2 3 ; do
+  $pnfs/tools/sclient getroot 1122 $c
+done
+#
+#  you will learn the database id, the root id of that database and
+#  wormhole link (pnfsID)
+#
+</pre> 
+</blockquote>
+</body>
+</html> 

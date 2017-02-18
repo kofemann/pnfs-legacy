@@ -1,0 +1,28 @@
+CC=/opt/SUNWspro/bin/cc
+#CC=gcc
+LEX=/usr/ccs/bin/lex
+AR=/usr/ccs/bin/ar
+RANLIB=/usr/ccs/bin/ranlib
+VERSION=V3.1.9
+MTYPE=solaris
+#VCFLAGS=-g -O2
+EXTRA=-DMD_FLAGS_INHERIT
+TIMEOUTS=-DPOST_TIMEOUT=3 -DSCL_CRITICAL_TIMEOUT=60 -DNO_ANSWER_ON_TIMEOUT
+#
+#   -DSCL_CRITICAL_TIMEOUT=60
+#   -DNO_ANSWER_ON_TIMEOUT
+#   -DPOST_TIMEOUT=60
+#
+VCFLAGS=-O -DMV_DENIED -Dhonour_gids ${TIMEOUTS} ${EXTRA}
+UCBLIB=/usr/ucblib
+NET=-lsocket -lnsl
+RPCSOCLIB=-R/usr/ucblib -L/usr/ucblib -lrpcsoc -lsocket -lnsl -lucb
+GDBASEINC=-I/usr/local/include
+GDBASE=-L/usr/local/lib/ -lgdbm -R/usr/ucblib -L/usr/ucblib -lucb
+LEXLIB=-ll
+OBJECTS=solaris
+db_impl=db_gdbm-hash.o
+#
+#  Platform specific 64-bit freopen() command.
+#
+FREOPEN64=freopen64

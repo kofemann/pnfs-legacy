@@ -1,0 +1,211 @@
+<html>
+<head><title>Version 3.1.3</title>
+</head>
+<body bgcolor=white>
+<h1>The Pnfs Version 3.1.3</h1>
+<hr>
+<h3>News</h3>
+<blockquote>
+<ul>
+<li><a href=#comp>Compatibility</a>
+<li><a href=#links>Hard links</a>
+<li><a href=#shut>Improved shutdown behaviour</a>
+<li><a href=#stat>More statistics via nfs filesystem calls</a>
+<li><a href=#remove>File remove action handler modified</a>
+<li><a href=#export>Export methods improved</a>
+<li><a href=#error222>The 222 Error</a>
+<li><a href=#bugfix>Bug fix : group id on creation now correct</a>
+<li><a href=#still>Unix Credentials group list still ignored</a>
+<li><a href=#remark>Remark</a>
+</ul>
+</blockquote>
+<hr>
+<a name=comp>
+<h3>Compatibility</h3>
+<blockquote>
+Version 3.1.3 is fully backward compatible. This means 
+that the 3.1.3 servers can run against databases
+created with previous server versions. <strong>BUT</strong>
+after using the hard link feature within 3.1.3 previous 
+software versions can no longer be used.
+</blockquote>
+<hr>
+<a name=links></a>
+<h3>Hard Links</h3>
+<blockquote>
+Starting with version 3.1.3 Pnfs supports hard links.
+The external trigger which currently simply creates
+a file in the <strong>Trash Directory</strong> is fired
+after the last link has been removed.<br>
+<strong>The pathfinder</strong> command gets totally confused
+if the original filename was unlinked.
+<br>
+By default, the hard link capability is enabled. 
+Setting the <strong>/usr/etc/pnfsSetup</strong>
+variable <strong>hardlinks</strong> to <strong>off</strong>
+disallows the creation of hardlinks. The hardlink unlink
+rules are not affected by this variable.
+</blockquote>                     
+<hr>
+<a name=shut></a>
+<h3>Improved shutdown behaviour</h3>
+<blockquote>
+The <strong>pnfs.server stop</strong> procedure no longer
+produces inconsistent entries in the filesystem if
+performed on a highly busy system.
+<p>
+Remark :
+<blockquote>
+An nfs filesystem request is received by one of the 
+pnfsDeamons and devided into several database operations.
+Those operations are then send to the corresponding
+database server via the shared memory link. 
+In cases where the shutdown doesn't allow all of those 
+subrequests to be finished, there is a high chance of 
+inconsistent filesystem entries. With 3.1.3 this can't 
+happen any longer as long as the following shutdown
+sequence is used :
+<ul>
+<li>Send SIGTERM to all pnfsd's.
+<li>Wait until they are all finished.
+<li>Send SIGTERM to all dbservers.
+</ul>
+This is what <strong>pnfs.server stop</strong> does.
+</blockquote> 
+<strong>Consequently</strong> it is not longer recommended
+to modify the running state of the database servers by
+the <strong>mdb update</strong> command without stopping
+the pnfs deamons first.                    
+</blockquote>                     
+<hr>
+<a name=stat></a>
+<h3>Access Counter</h3>
+<blockquote>
+Some methods to obtain statistical informations have been
+added.<br><br>
+  <strong>.(get)(database)(&lt;dbNumber&gt;)</strong><br>
+  <blockquote>
+  Reading from <em>.(get)(database)(&lt;dbNumber&gt;)</em>
+  returns a one line description of the database &lt;dbNumber&gt;.
+  If database &lt;dbNumber&gt; doesn't exist, the 'file not found'
+  error is returned.
+  </blockquote>
+  <strong>.(get)(counters)(&lt;dbNumber&gt;)</strong><br>
+  <blockquote>
+  Reading from <em>.(get)(counters)(&lt;dbNumber&gt;)</em>
+  returns the access counts of database &lt;dbNumber&gt;.
+  If database &lt;dbNumber&gt; doesn't exist, the command blocks.
+  It would be wise to check the existence with the 
+  <em>.(get)(database)(&lt;dbNumber&gt;)</em> call first.
+  </blockquote>
+  <strong>.(get)(position)</strong><br>
+  <blockquote>
+  <strong>.(get)(position)</strong> returns the description of
+  the current directory position seen from <strong>pnfs</strong>.
+  The position is identified by the ID and the permission of the
+  current directory and the ID of the mountpoint.
+  The information is needed by the DESY <strong>osmcp</strong> to find
+  the mountpoint of the current path without OS specific system
+  calles.
+  <pre>
+    dirID=000000000000000000001788
+    dirPerm=0000001400000020
+    mountID=000000000000000000001040
+  </pre>
+  </blockquote>
+</blockquote>
+<hr>
+<a name=remove></a>
+<h3>File remove action handler modified</h3>
+<blockquote>
+The file remove action handler performs the following
+actions if the link count of a file becomes zero.<p>
+For each file level with a content greater then zero,
+this content is copied to a file called :
+<ul>
+<li>
+<strong>$trash/&lt;levelNumber&gt;/.&lt;pnfsID&gt;</strong>
+if the corresponding directory path exists.<br>
+<li>
+After the copy operation the file is renamed to
+<strong>$trash/&lt;levelNumber&gt;/&lt;pnfsID&gt;</strong>.
+</ul>
+where $trash is the <em>/usr/etc/pnfsSetup</em> 
+<strong>trash</strong> variable.<br>
+This behaviour makes the creation of the trashFile 
+more or less atomic. The consequence is that
+<strong>
+files starting with a dot must be ignored in the
+trash directories</strong>.
+</blockquote>
+<li><a href=#export>Export methods improved</a>
+<hr>
+<a name=export></a>
+<h3>Export methods improved</h3>
+<blockquote>
+The export facility now supports multiple indirections,
+mountgroups and exporting filesystems to whole subnets.
+<p>
+<a href=export.html>The Export Facility</a>
+<p>
+The previous scheme is part of the new model so there is
+no need to change the configuration.
+</blockquote>
+<hr>
+<a name=error222></a>
+<h3>The 222 Error</h3>
+<blockquote>
+The following error message may show up in the dbserverLog file
+if the system is heavily loaded.
+<pre>
+ ... - Request &lt;ReqNum&gt; removed caused by late arrival
+</pre>
+At the same time a 
+<pre>
+ ...   (-335) -&gt; -222
+</pre>
+will appear in the pnfsdLog.
+This printout simply indicates that an nfs request arrived which is older
+than the request previously processed. <p>
+We have to throw away those
+requests because on heavy load, the nfs client tends to retry nfs requests.
+Both requests may be queued in different pnfs deamons and we can't 
+determine the sequence in which they will be processed. Under some very
+unlucky conditions we may reply to both requests with a significant 
+time interval inbetween. Because other requests concerning the
+same filesystem object may have been processed in the meantime
+the result can be very destructive.<p>
+<strong>So the error message above can be ignored.</strong>
+</blockquote>
+<hr>
+<a name=bugfix></a>
+<h3>BUG fix : wrong Object Group ID</h3>
+<blockquote>
+With version 3.1.3 the Group id of a newly created
+file or directory is set to the effective group id
+of the user, taken from the unix credentials, 
+if the group ID was not set in the attributes.
+Before doing so, we observed strange behaviours with Linux and HP-UX. 
+</blockquote>
+<hr>
+<a name=still></a>
+<h3>known BUG : Unix Credential Group ID list ignored</h3>
+<blockquote>
+Currently we ignore the users group list which is sent
+as part of the unix credentials. This may cause 
+wrong behavious in conjunction with the chgrp or chown 
+command. 
+</blockquote>
+<hr>
+<a name=remark></a>
+<h3>Attributes of non top file levels</h3>
+<blockquote>
+Currently all 8 file levels are created with the same attibutes
+like owner, group and permissions. Changing the attributes
+of the top layer will always change the corresponding attributes
+of layer ONE as well, while the other layers are not affected.
+Layer TWO to SEVEN can be changed by the special 
+<strong>.(use)(&lt;levelNumber&gt;)(&lt;filename&gt;)</strong>.
+</blockquote>
+</body>
+</html> 

@@ -1,0 +1,64 @@
+#!/bin/sh
+#
+#
+os=`uname -s`
+revMajor=`uname -r | awk -F. '{ print $1 }'`
+revMinor=`uname -r | awk -F. '{ print $2 }'`
+#
+if [ "$os" = "Linux" ] ; then
+  tp=linux 
+elif [ "$os" = "SunOS" ] ; then
+   if [ $revMajor -lt 5 ] ; then
+     tp=sunos
+   else
+     tp=solaris
+   fi
+elif [ "$os" = "IRIX64" ] ; then
+  tp=irix64
+elif [ "$os" = "IRIX" ] ; then
+  tp=irix
+elif [ "$os" = "Darwin" ] ; then
+  tp=darwin
+else
+   echo " Sorry can't run with OS : $os"
+   exit 1
+fi 
+VER=./version.$tp
+if [ ! -f $VER ] ; then
+  echo " Sorry, can't find $VER file "
+  exit 0
+fi
+echo ""
+echo " Will use Version File $VER "
+echo ""
+rm -f ./version
+ln -s $VER version
+OBJECTS=`awk -F= '{ if($1=="OBJECTS")print $2 }' $VER`
+if [ -z "$OBJECTS" ] ;then
+   echo " Sorry, can't find OBJECTS in $VER file" 
+   exit 1
+fi
+#
+command=$1
+if [ "$1" = "install" ] ; then
+  cd tools
+  if [ ! -d $OBJECTS ] ; then
+      rm -f $OBJECTS
+      mkdir -p $OBJECTS 
+  fi
+  for c in md2tool md3tool pmountd pnfsd pmount3d pnfs3d shmcom dbserver sclient; do
+     rm -f $c
+     ln -s $OBJECTS/$c $c 
+  done
+  cd ..
+elif [  "$1" = "binclean" ] ; then
+  cd tools
+  for c in * ; do
+    if [ -d $c ] ; then
+       rm -f $c/*
+    fi
+  done
+  cd ..
+  command="clean"
+fi
+#

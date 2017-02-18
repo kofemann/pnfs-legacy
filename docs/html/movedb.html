@@ -1,0 +1,139 @@
+<html>
+<head><title>XChanging Pnfs Databases</title>
+</head>
+<body bgcolor=white>
+<h1>XChanging Pnfs Databases</h1>
+It might become necessary to move a complete pnfs system to
+a different host or just to exchange databases among
+different pnfs systems. Various restrictions apply to these
+two actions.
+<hr>
+<h1>Moving the complete system</h1>
+<h3>Restrictions</h3>
+<blockquote>
+
+The same gdbm library must be running on both
+hosts. This mainly means that the OS must be
+complatible and the endianess must be identical.
+
+</blockquote>
+<h3>How to ...</h3>
+<blockquote>
+As long as the directory structure is identical the following 
+directories/files have to be moved or created :
+<ul>
+<li>File /usr/etc/pnfsSetup has to be moved.
+<li>Directory $database has to be moved.
+<li>All gdbm databases have to be moved. The 'mdb show' command
+    gives a list of all database locations.
+<li>And of course the binaries and tools in $pnfs/tools.
+<li>The $trash directory must be created, with the
+    corresponding substructures $trash/1 ... $trash/7.
+<li>Last but not least : the log directories have to be 
+    created and the logfiles should be touched :
+    $pmountdLog, $pnfsdLog, $dbserverLog.
+</ul>
+If parts of the directory structure differs from the source
+machine some adjustments need to be made.
+<br>
+Files or directories which are listed in /usr/etc/pnfsSetup
+only have to be modified within this file if there new 
+location differs from the old ones.
+<br>
+If a database file gets a new location the corresponding
+link $database/D-xxxx has to be modified.
+After all D* files contain the correct destination the
+$database/databases files has to be removed and
+'mdb enable admin' needs to be called to recreate the
+$database/databases file  again.
+</blockquote>
+<hr>
+<h1>Moving single databases</h1>
+Exchanging databases between different pnfs systems has never been
+forseen, so there are no 'ready to use' tools available for
+such an event. But under certain circustances an exchange is 
+possible.
+<h3>Restrictions</h3>
+<blockquote>
+<ul>
+<li>
+The same gdb library must be running on both
+hosts. This mainly means that the OS must be
+complatible and the endianess must be identical.
+<li>
+<strong>There is no way to change the <em>dabaseId</em>
+of an existing database.</strong> Consequently the destination pnfs system
+must not yet use the database Id of the database which will be
+moved.
+</ul>
+</blockquote>
+<h3>How to ...</h3>
+<blockquote>
+<strong>What is needed from the source pnfs system ?</strong>
+<blockquote>
+    You need the <strong>pnfsId</strong> of the top directory within the
+    database which will be moved. <br>
+    Theoretically it's possible that
+    there is more than one topdirectory. This depends on how
+    offen the command 
+    <strong>mkdir .(&lt;databaseId&gt;)(&lt;dirName&gt;)</strong>
+    has been used in conjunction with the concerning database.
+    If there is more than one, the procedure has to be repeated for
+    each of them.
+    <ul>
+    <li>'cd' into the directory were the 'mkdir' command has
+        been issued.
+    <li>use <strong>cat .(id)(&lt;dirName&gt;)</strong> to obtain
+        the <strong>pnfsId</strong> of the linkdirectory.
+        &lt;dirName&gt; is the name which was used in the mkdir 
+        command.
+        This resulting pnfsId will be used to relink the directory within
+        the new system.<br>
+        The first 4 digits of the <em>pnfsId</em> must be
+        the hex representation of the concerning databaseId.
+    </ul>
+</blockquote>
+<strong>Copy the databasefile to the new machine/location and
+        make it known to the destination pnfs system</strong><p>
+<ul>
+<li>
+The destination pnfs system must be active for the following steps :
+<li>
+Get the internal dbid of the moved database : 
+     <strong>md2tool &lt;databaseFileName&gt; getdbid</strong>
+<li>
+use <strong>mdb show</strong> to make sure this database id
+    is not yet in use.
+<li>
+use <strong>mdb add &lt;dbName&gt; &lt;fullDatabaseFilePath&gt;</strong>
+    to add the file to the destination system. &lt;dbName&gt; as well must be
+    unique and not yet in use by the dest. system, but need not be 
+    the same as on the source system.
+<li>'cd' into the directory from where you want to link to 
+    the top directory (directories) of the moved databases.
+<li>do a : basename `pwd`  -> <strong>&lt;dirName&gt;</strong>
+<li>do a : cd ..
+<li>do a : cat .(id)(&lt;dirName&gt;)  -> &lt;dirPnfsId&gt;
+<li>the first 4 digits of this &lt;dirPnfsId&gt; are the
+    databaseId of the database where we have to create the link.
+<li>use 'mdb show' to determine the full path of this database.
+<li>deactivate the destination pnfs system : pnfs.server stop
+<li>run  'mdb &lt;fullDbPath&gt;' with the following input line :
+    <pre>
+    addtodirectory &lt;dirPnfsId&gt; &lt;dirName&gt; &lt;linkPnfsId&gt;
+    </pre>
+    where :
+    <ul>
+    <li>&lt;dirPnfsId&gt; is the pnfsId of the directory where you want
+        to have the link to the new database.
+    <li>&lt;dirName&gt; name of this link.
+    <li>&lt;linkPnfsId&gt; is the pnfsId of the topdirectory
+        to which we want to link.
+    </ul>
+<li>activate the system again (pnfs.server start)
+<li>run 'mdb update'
+</ul>
+</blockquote>
+
+</body>
+</html>

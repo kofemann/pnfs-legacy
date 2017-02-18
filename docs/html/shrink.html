@@ -1,0 +1,71 @@
+<html>
+<head><title>Shrinking a Pnfs Database</title>
+</head>
+<body bgcolor=white>
+<h1>Shrinking a Pnfs Database</h1>
+All Pnfs Databases are Gdbm Files compatible with 
+gdbm version 1.7.3 and higher.
+The specification of gdbm claims that a database never
+shrinks automatically when deleting records, BUT 
+unused space is reused before the database is extended.<br>
+So, under normal conditions it should not become necessary
+to shrink a pnfs database because filesystems tend to increase
+over time.
+<br>
+But if you really need the space you may write your own small 
+tool which uses the gdbm_reorganize function.
+<strong>Make sure the dbserver for the reorganized database
+is not running.</strong>
+Or you may use some pnfs tools to shrink the database.
+<h4>Using PNFS tools to shrink a database</h4>
+The available tools to modify the database were not
+intended to be used by a user directy, with the
+result, that they are neither convenient nor for easy to use.
+<br>
+<ul>
+<li>Extend your PATH to have the the necessary tools available.
+    You need $pnfs/tools and $pnfs/dbfs. $pnfs is the pnfs variable
+    in /usr/etc/pnfsSetup.
+<li>For the following procedure you need the
+    <strong>database name</strong> as well as the
+    <strong>database full path</strong>.
+    Use <strong>mdb show</strong> to find whatever you need.
+<li>Shut down the database you want to modify.
+    <pre>
+          mdb disable &lt;databaseName&gt;
+          mdb update
+    </pre>
+<li>Get the <strong>database id</strong> of the desired database.
+    <pre>
+        md2tool &lt;databaseFullPath&gt; getdbid
+    </pre>
+<li>Create a new empty database which will be the destination of the
+    shrinked database.
+    <pre>
+        md2tool none create &lt;databaseFullPath&gt;.small &lt;databaseID&gt;
+    </pre>
+    Take the &lt;databaseID&gt; from the <strong>getdbid</strong> command.
+<li>Copy the large database to the newly created one.
+    <pre>
+        md3shrink &lt;databaseFullPath&gt; &lt;databaseFullPath&gt;.small
+    </pre>
+    The copy process may take awhile because it goes throu 
+    some unnecessary pnfs layers. For each internal record one line of 
+    output is written to stdout specifying the pnfsID of the record.
+    So stdout should be written to /dev/null to speedup the copy process.
+    If errors are reported to stderr, the database is somehow corrupted
+    and it is not recommended to proceed further.
+<li>Backup or remove the large database and rename the small one.
+    <pre>
+        mv  &lt;databaseFullPath&gt;  &lt;databaseFullPath&gt;.backup
+        mv  &lt;databaseFullPath&gt;.small  &lt;databaseFullPath&gt;
+    </pre>
+<li>Enable the database again.
+    <pre>
+        mdb enable &lt;databaseName&gt;
+        mdb update
+    </pre>    
+</ul>
+</body>
+</html> 
+ 

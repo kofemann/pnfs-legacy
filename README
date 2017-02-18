@@ -1,0 +1,26 @@
+To compile just type
+
+make
+
+To run pnfs from the local directory you must type 
+
+make install
+
+To provide a conventional "make install" type 
+
+make deposit 
+
+This will install to the directory /opt/pnfs.3.1.10/pnfs to set the instalation
+prefix type the following
+
+make deposit prefix=${YOUR_INSTALL_DIR}
+
+where YOUR_INSTALL_DIR is the directory you want to install pnfs under.
+
+To make a source tar ball for redistribution
+
+make dist
+
+To make an rpm type 
+
+make rpm

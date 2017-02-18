@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+if [ \( $# -ne 1 \) -a \( $# -ne 3 \) ] ; then
+   echo "Usage : ... <pnfsDirPath> remove|move|security on|off" >&2
+   exit 4
+fi
+if [ ! -f /usr/etc/pnfsSetup ] ; then
+   echo "Error : not a pnfs server node" >&2
+   exit 5
+fi
+. /usr/etc/pnfsSetup
+#
+dirpath=$1
+#
+if [ ! -d ${dirpath} ] ; then
+   echo "Error : not a directory : ${dirpath}" >&2
+   exit 7
+fi
+dir=`dirname ${dirpath}`
+base=`basename ${dirpath}`
+pnfsidpath="${dir}/.(id)(${base})"
+pnfsid=`cat ${pnfsidpath} 2>/dev/null`
+if [ $? -ne 0 ] ; then
+   echo "Error : not a pnfs filesystem" >&2
+   exit 4
+fi
+#
+SCLIENT=${pnfs}/tools/sclient
+if [ ! -x ${SCLIENT} ] ; then
+  echo "Error : sclient not found" >&2
+  exit 6
+fi
+shift
+${SCLIENT} flag ${shmkey} ${pnfsid} $* 2>/dev/null
+errorcode=$?
+if [ ${errorcode} -eq 1 ] ; then
+   echo "Usage : ... <pnfsDirPath> remove|move|security on|off" >&2
+   exit 4
+elif [ ${errorcode} -eq 2 ] ; then
+   echo "Permission denied to access shmcom" >&2
+   exit 6
+elif [ ${errorcode} -ne 0 ] ; then
+   echo "Command failed" >&2
+   exit ${errorcode}
+fi
+exit 0

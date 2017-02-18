@@ -1,0 +1,516 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+setup=/usr/etc/pnfsSetup
+#
+usage() {
+   echo " Usage : mdb update "
+   echo " Usage : mdb enable  <dbName>"
+   echo " Usage : mdb disable <dbName>"
+   echo " Usage : mdb reserve <dbID> [<dbName> <comment>]"
+   echo " Usage : mdb create <dbName> <full DBpath>"
+   echo " Usage : mdb add    <dbName> <full DBpath>"
+   echo " Usage : mdb remove <dbName>"
+   echo " Usage : mdb status"
+   echo " Usage : mdb showall"
+   echo " Usage : mdb setbinary <dbName> <dbServerBinaryID>"
+   echo " Usage : mdb backup <dbName>"
+   echo " Usage : mdb heartbeat [ on | off ]"
+
+   return 0
+}
+
+#
+#  check for existence of our setup
+#@
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find setup file $setup "
+   exit 1
+fi
+#
+. $setup
+#
+if [ -z "$shmkey" ] ; then echo " shmkey not found in $setup " ; exit 1 ; fi
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup " ; exit 1 ; fi
+if [ -z "$database" ] ; then echo " database not found in $setup " ; exit 1 ; fi
+
+db=$database
+SHM=$shmkey
+tools=$pnfs/tools
+LOCK=$database/lock/heartbeat.minute
+LOCKDIR=$database/lock
+SCOM=$tools/shmcom
+mbin=$tools
+
+if [ ! -f $mbin/special ] ; then
+  echo " Can't find platform file : $mbin/special "
+  exit 1
+fi
+. $mbin/special
+if [ $? -ne 0 ] ; then exit 1 ; fi
+#
+# ------------------------------------------------------------------
+#
+#    lock helper
+#
+#
+#   get_critical [<timeout>]
+#
+lock_rel_critical() {
+ if [ $# -eq 0 ] ; then return 1 ; fi
+ CR=$LOCKDIR/$1
+ SH=$LOCKDIR/.$1
+ touch $CR
+ rm -f $SH
+ return 0
+}
+lock_get_critical() {
+
+if [ $# -eq 0 ] ; then return 1 ; fi
+
+CR=$LOCKDIR/$1
+SH=$LOCKDIR/.$1
+
+if [ $# -eq 1 ] ; then
+  rm $CR >/dev/null 2>/dev/null
+  if [ $? -eq 0 ] ; then
+     touch $SH >/dev/null 2>/dev/null
+     return 0 
+  else return 1 ; fi
+fi
+
+to=$2
+while [ $to -gt 0 ] ; do
+  rm $CR >/dev/null 2>/dev/null
+  if [ $? -eq 0 ] ; then 
+     touch $SH >/dev/null 2>/dev/null
+     return 0 
+  fi
+  sleep 1
+  to=`expr $to - 1`
+done
+return 1
+
+}
+# ------------------------------------------------------------------
+#     
+#   versioning
+#
+#check_version() {
+#   if [ #? -eq 0 ] ; then return 1 ; fi
+#   if [ ! -f $DIR/next ] ; then
+#      echo 4 >$DIR/next  2>/dev/null
+#      if [ #? -ne 0 ] ; then return 1 ; fi
+#   fi
+#   next=`cat $DIR/next`
+#   ls *.$next *.$next.Z >/dev/null 2>/dev/null
+#
+#}
+testlock() {
+ case $1 in
+    set) shift 1 
+         lock_get_critical $*  
+         if [ $? -ne 0 ] ; then echo " failed " ; fi
+    ;;    
+    unset) shift 1 ; lock_rel_critical $* ;;
+ esac
+}
+#
+#
+# ------------------------------------------------------------------
+#      heartbeat stuff
+#
+do_the_heartbeat() {
+  case $1 in 
+    on) rm -f $LOCK.stop ; touch $LOCK ;;
+    off)  if [ -f $LOCK ] ; then mv $LOCK $LOCK.stop ; fi  ;;
+    *)
+       if [ -f $LOCK ] ; then
+         echo " heartbeat enabled"
+       elif [ -f $LOCK.stop ] ; then 
+         echo " heartbeat stopped"
+       else
+         echo " heartbeat disabled"
+       fi 
+      ;;
+  esac
+  return 0
+}
+#
+#
+#
+# ------------------------------------------------------------------
+#
+do_the_backup() {
+  if [ $# -ne 1 ] ; then usage ; fi
+  backup=/usr/db/pnfs/DB/backup
+
+  dbID=`$AWK -F: '{ if( $1 == dbname )print $2 }' dbname=$1 $db/D-????`
+
+  if [ -z "$dbID" ] ; then
+    echo " No database : $dbID found in info base "
+    exit 1
+  fi
+  dbPath=`$AWK -F: '{ if( $1 == dbname )print $5 }' dbname=$1 $db/D-????`
+  echo " smd exec $dbID disablewrite "
+  $mbin/smd exec $dbID disablewrite
+  echo " cp $dbPath $backup "
+  cp $dbPath $backup
+  echo " smd exec $dbID enablewrite "
+  $mbin/smd exec $dbID enablewrite
+ 
+  return 0 
+
+}
+#
+#
+# ------------------------------------------------------------------
+#
+update_processes() {
+
+  tmp1=/tmp/mdb_$$_1
+  tmp2=/tmp/mdb_$$_2
+  spps |
+   $AWK '{ if(($2=="dbserver") )printf "%s %s\n",$NF,$1 }'  -  |
+   $SORT  >$tmp1
+   
+  $AWK -F: '{
+              if(($3=="r")&&($4=="enabled"))printf "%s\n",$1
+           }' $db/D-???? | $SORT >$tmp2
+  cd $mbin
+  $JOIN -v 1 -v 2 $tmp1 $tmp2 | while read dbName dbPid ; do
+    if [ -z "$dbPid" ] ; then
+      echo " Starting $dbName "
+      ./dbserver $dbName 1>/dev/null 2>/dev/null
+    else
+      echo " Killing  $dbName $dbPid"
+      kill -TERM $dbPid
+    fi
+  done
+  rm -f $tmp1 $tmp2
+
+  return 0
+}
+
+# ------------------------------------------------------------------
+#
+update_databases() {
+  if [ ! -f $db/D-0000 ] ; then
+    rm -f $db/databases
+    rm -f $db/shmservers
+    return 0
+  fi
+
+  $AWK -F: '{
+          if(($3=="r")&&($4=="enabled"))printf "%s=%s\n",$1,$5  
+       }' $db/D-???? >$db/databases
+
+  last=`ls $db/D-???? | tail -1`
+  ID=`$AWK -F: '{ print $2 }' $last`
+  count=`expr $ID + 2`
+  echo $count >$db/shmservers
+
+  return 0
+}
+# ------------------------------------------------------------------
+check_x() {
+  rc=0
+  cd $db
+  for c in D-???? ; do
+    id=`$AWK -F: '{ printf "D-%04d",$2 }' $c`
+    if [ "$c" != "$id" ] ;then
+      echo " Inconsisted DB ID in File : $c -> $id "
+      rc=1
+    fi
+  done
+  return $rc
+}
+# ------------------------------------------------------------------
+pidof() { 
+    spps | $AWK '{if(($2==key))printf "%s ",$1}' key=$1 - 
+}
+show_pnfs() {
+
+   pnfsds=`pidof pnfsd` 
+   pmountds=`pidof pmountd` 
+   dbs=`pidof dbserver` 
+
+
+   printf "\n Mount Deamon  : "
+   if [ -z "$pmountds" ] ; then
+      printf "Inactive\n"
+   else
+      echo $pmountds
+   fi
+   printf "\n nfs Deamons   : "
+   if [ -z "$pnfsds" ] ; then
+      printf "Inactive\n"
+   else
+      echo $pnfsds
+   fi
+   printf "\n DB Server     : "
+   if [ -z "$dbs" ] ; then
+      printf "Inactive\n"
+   else
+      echo $dbs
+   fi
+   printf "\n"
+}
+# ------------------------------------------------------------------
+show_status() {
+   if [ ! -f $db/D-0000 ] ; then
+    echo " There is no database defined "
+    return 1
+   fi
+   check_x
+   tmp1=/tmp/mdb-$$-1
+   cat $db/D-???? | $SORT -t : >$tmp1
+             printf "   ID   Name         Type    Status       Path  \n"
+             printf " ---------------------------------------------- \n"
+   spps | $NAWK  '{
+             if(($2=="dbserver") )ar[$NF]=$1
+         }
+         END{
+             while( getline line <inf > 0 ){
+                n = split( line , hel , ":" ) ;
+                db[hel[1]] = line ; 
+             }
+             for( item in db ){
+                n = split( db[item] , h , ":" ) ;
+                if( item in ar ){
+                   printf "  %2s    %-10s   %2s     %-8s(r)   %s\n",h[2],h[1],h[3],h[4],h[5]
+                }else{
+                   printf "  %2s    %-10s   %2s     %-8s(x)   %s\n",h[2],h[1],h[3],h[4],h[5]
+                }
+             }
+         }'  inf=$tmp1  - | sort -n
+   
+   rm -f $tmp1
+
+}
+# ------------------------------------------------------------------
+xkshow_status() {
+   check_x
+   printf "   ID   Name       Type    Status    Path  \n"
+   printf " ---------------------------------------------- \n"
+   for c in $db/D-???? ; do
+    $AWK -F: '{
+           printf "  %2s    %-8s   %2s     %-8s   %s\n",$2,$1,$3,$4,$5     
+        }'  $c
+   done
+}
+# ------------------------------------------------------------------
+# usage : disable  d|e  <dbName>
+#
+disable() {
+   if [ $# -lt 2 ] ; then usage ; exit 1 ; fi
+   tmpFile=/tmp/mdb-$$
+   rc=1
+   for c in $db/D-???? ; do
+     nm=`$AWK -F: '{ printf "%s",$1 }' $c`
+     if [ "$2" = "$nm" ] ; then
+           $AWK -F:  '{ 
+                for(i=1;i<NF;i++)
+                if( i == 4 ){
+                   if( act == "d" )printf "disabled:"
+                   if( act == "e" )printf "enabled:"
+                }else{
+                   printf "%s:",$i
+                }
+                printf "%s\n",$NF
+             }'  act=$1 $c   >$db/tmp-$$
+           mv $db/tmp-$$ $c
+           rc=0
+     fi
+   done
+   if [ $rc -eq 0 ] ; then
+      update_databases
+      return 0
+   else
+      echo " No database entry : $2 found "
+      return 1
+   fi
+}
+# ------------------------------------------------------------------
+reserve_id() {
+ if [ $# -lt 1 ] ; then usage ; exit 1 ; fi
+ id=$1
+ dbName=${2:-Res_$id} 
+ com=${3:-"-"}
+ infoPath=$db/`printf "D-%04d" $id`
+ if [ -f $infoPath ] ; then
+   echo " Database ID $id already exists "
+   return 1
+ fi
+ printf "%s:%d:x:-:%s\n" $dbName $id $com >$infoPath
+ return 0
+
+
+}
+# ------------------------------------------------------------------
+rm_database() {
+ if [ $# -ne 2 ] ; then usage ; exit 1 ; fi
+ mode=$1
+ dbName=$2
+#
+#  find the entry in the D-xxxx system
+#
+ infoPath=""
+ for c in $db/D-???? ; do
+    id=`$AWK -F: '{ print $1 }' $c`
+    if [ "$id" = "$dbName" ] ; then infoPath=$c ; break ; fi
+ done
+ if [ "$infoPath" = "" ] ; then
+   echo " Database $dbName not found "
+   return
+ fi
+ run=`spps | $AWK '{ if(($2=="dbserver")&&($3==nm))print $1;}' nm=$dbName -`
+ if [ ! -z "$run" ] ; then
+    echo " There is still a server running for $dbName at $run"
+    echo " You should : mdb disable $dbName ; mdb update ; "
+    exit 1
+ fi 
+ mode=`$AWK -F:  '{ print $3 }' $infoPath`
+ if [ "$mode" = "x" ] ; then 
+    rm $infoPath 
+    return 0
+ fi
+ dbPath=`$AWK -F:  '{ print $5 }' $infoPath`
+ if [ -f $dbPath ] ; then
+    echo " The database file still exists : $dbPath "
+    echo " Please remove first (rm $dbPath)"
+    return 1
+ fi
+ rm $infoPath
+ update_databases
+ return 0
+}
+# ------------------------------------------------------------------
+create_database() {
+ if [ $# -ne 3 ] ; then usage ; exit 1 ; fi
+ mode=$1
+ dbName=$2
+ dbPath=$3
+ x=`echo $dbPath | $AWK '{ printf "%s\n",substr($1,1,1) }'`
+ if [ "$x" != "/" ] ;  then
+    echo " >$dbPath< is not a full pathname "
+    return 1
+ fi
+ if [ \( $mode = "create" \) -a \( -f $dbPath \) ] ; then
+   echo " The database file  >$dbPath< already exists  "
+   echo " Remove the file or use the add command instead of create"
+   return 1
+ fi
+#
+#  find the entry in the D-xxxx system
+#
+ infoPath=""
+ if [  ! -f $db/D-0000  ] ; then
+   if [ "$dbName" != "admin" ] ; then
+     echo " First database has to be admin "
+     return 1
+   fi
+ else
+   for c in $db/D-???? ; do
+      id=`$AWK -F: '{ print $1 }' $c`
+      if [ "$id" = "$dbName" ] ; then infoPath=$c ; break ; fi
+   done
+ fi
+#
+#   there is still the name in the list
+#
+ if [ "$infoPath" != "" ] ; then
+     echo " There is already an entry named : $dbName "
+     echo " Please remove first !!! "
+     return 1
+ fi
+ if [ ! -f $dbPath  ] ; then
+   id=`next_free_id`
+   infoPath=$db/`printf "D-%04d" $id`
+   $mbin/mdcreate root $id $dbPath >/dev/null 2>/dev/null
+   if [ $? -ne 0 ] ; then
+    echo " Problem creating $dbName at $dbPath " 
+    echo " run : mdcreate root $id $dbPath ; to check error condition "
+    return 1
+   fi
+   if [ "$dbName" = "admin" ] ; then
+      $mbin/mdcreate admin $dbPath >/dev/null 2>/dev/null
+      if [ $? -ne 0 ] ; then
+       echo " Problem making admin from $dbName at $dbPath " 
+       echo " run : mdcreate admin $dbPath ; to check error condition "
+       return 1
+      fi
+   fi
+ else
+   if [ ! -f $dbPath ] ; then
+    echo " File not found : $dbPath " 
+    return 1
+   fi
+   id=`$mbin/md2tool $dbPath getdbid  2>/dev/null`
+   if [ $? -ne 0 ] ; then
+    echo " Not a pnfs database or in use : $dbPath " 
+    return 1
+   fi
+   id=`echo $id | $AWK '{ print $2 }'`
+   infoPath=$db/`printf "D-%04d" $id`
+   if [ -f $infoPath ] ; then
+     oldDb=`$AWK -F: '{ print $1 }' $infoPath`
+     echo " Database $oldDb is already using dbid $id"
+     return 1 
+   fi
+
+ fi
+ printf "%s:%s:r:enabled:%s\n" $dbName $id $dbPath >$infoPath
+ update_databases
+ 
+ return 0
+
+}
+next_free_id() {
+  i=0
+  if [ ! -f $db/D-0000 ] ; then echo "0" ; return 0 ; fi
+  while : ; do
+    fl=`printf "D-%04d" $i`
+    if [ ! -f $db/$fl ] ; then break ; fi
+    i=`expr $i + 1 `
+  done
+  echo "$i"
+      
+}
+# ------------------------------------------------------------------
+#
+#  the switch
+#
+case $1 in 
+    updatedb)   ckr ; update_databases ;;
+    check)            check_x ; exit $? ;;
+    disable)    ckr ; shift 1 ; disable d $* ; exit $?  ;;
+    enable)     ckr ; shift 1 ; disable e $* ; exit $?  ;;
+    status)           show_status ;;
+    show)             show_status ;;
+    create)     ckr ; shift 1 ; create_database create $* ;;
+    add)        ckr ; shift 1 ; create_database add    $* ;;
+    remove)     ckr ; shift 1 ; rm_database rm    $* ;;
+    reserve)    ckr ; shift 1 ; reserve_id $* ;;
+    backup)     ckr ; shift 1 ; do_the_backup $* ;;
+    heartbeat)  ckr ; shift 1 ; do_the_heartbeat $* ;;
+    update)     ckr ; update_processes ;;
+    showall)          show_pnfs ; show_status;;
+    setbinary)  ckr ; shift 1 ; setbinary $* ;;
+    testlock)   ckr ; shift 1 ; testlock $* ;;
+    *) usage ;;
+esac

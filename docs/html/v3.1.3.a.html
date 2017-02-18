@@ -1,0 +1,64 @@
+<html>
+<head><title>Version 3.1.3 - A</title>
+</head>
+<body bgcolor=white>
+<h1>The Pnfs Version 3.1.3 Patchlevel A</h1>
+<hr>
+<h3>News</h3>
+<blockquote>
+<ul>
+<li><a href=#level>Level Attribute behaviour now tunable</a>
+<li><a href=#bugfix1>Bug fix : chmod</a>
+<li><a href=#bugfix2>Bug fix : rmdir</a>
+<li><a href=#bugfix3>Bug fix : mdb show</a>
+</ul>
+</blockquote>
+<hr>
+<a name=level>
+<h3>Level Attribute behaviour now tunable</h3>
+<blockquote>
+With patch level 3.1.3A pnfs allows to specify the behaviour
+of level 1 to 7  on the creation of a file and on the
+modification of its attributes. Usually the levels behave 
+as needed at DESY, which means, level 1, 2 and 7 are
+in sync with the top level and the residual levels 
+remain unchanged on chmod or chown ... commands.
+<br>
+With Patch 3.1.3.A a new /usr/etc/pnfsSetup variable
+has been added which defines which level keeps in sync
+with the top level and which levels remain unchanged.
+<pre>
+Syntax :     levelmask=0:x:x:x:x:x:x:x
+             
+             x :  -1   in sync with top level
+                   0   uid=0;gid=0;mode=700
+</pre>
+</blockquote>
+<hr>
+<a name=bugfix1>
+<h3>Bug fix : setattr</h3>
+<blockquote>
+There was a bug which disallowed a user, who changed the mode bits
+of a file or directory to 000, to change it back afterwards.
+This problem has been removed.
+</blockquote>
+<hr>
+<a name=bugfix2>
+<h3>Bug fix : rmdir</h3>
+<blockquote>
+The attempt to remove a directory which was not yet empty
+removed all tags assigned with this directory.
+This problem has been solved.
+</blockquote>
+<hr>
+<a name=bugfix3>
+<h3>Bug fix : mdb show</h3>
+<blockquote>
+The database lookup program <strong>mdb show</strong>
+got confused whenever a new database name extends the 
+name of an already used one.
+This problem has been solved.
+</blockquote>
+<hr>
+</body>
+</html> 

@@ -1,0 +1,58 @@
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+os=`uname -s`
+export CLASSPATH
+export LD_LIBRARY_PATH
+export P_JAVAINCL
+export P_JAVAINCL_1
+export P_JAVALIB
+#
+if [ "$os" = "Linux" ] ; then
+#
+#           LINUX
+#
+   CELLS=/home/patrick/cvs-cells/cells
+   PNFS=/home/patrick/cvs-pnfs/pnfs
+   P_JAVA=/usr/lib/java
+   P_JAVALIB=$P_JAVA/lib/i686/native_threads
+   P_JAVAINCL=$P_JAVA/include
+   P_JAVAINCL_1=$P_JAVA/include/genunix
+elif [ \( "$os" = "IRIX" \) -o \( "$os" = "IRIX64" \) ] ; then
+   echo "Not yet done : IRIX??" 
+elif [ "$os" = "SunOS" ] ; then
+#
+#          SOLARIS 
+#
+   rev=`uname -r | awk -F. '{ print $1 }'`
+   if [ $rev -lt 5 ] ; then
+     echo "no longer supported SunOS $rev"
+     exit 3
+   else
+       CELLS=/export/home/patrick/cvs-cells/cells
+       PNFS=/export/home/patrick/cvs-pnfs/pnfs
+       P_JAVA=/usr/jdk1.1.7/usr/java
+       P_JAVALIB=$P_JAVA/lib/sparc/native_threads
+       P_JAVAINCL=$P_JAVA/include
+       P_JAVAINCL_1=$P_JAVA/include/solaris
+   fi
+else
+   echo " Sorry can't run with OS : $os"
+   exit 1
+fi 
+CLASSPATH=.:$CELLS:$PNFS
+LD_LIBRARY_PATH=$P_JAVALIB:$PNFS/dbfs:$PNFS/jpnfs/shmcom
+#
+#

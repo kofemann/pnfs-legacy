@@ -1,0 +1,159 @@
+<html>
+<head><title>The Export Facility</title>
+</head>
+<body bgcolor=white>
+<h1>The Export Facility</h1>
+<hr>
+<h3>The Pnfs Mount Operation</h3>
+Within pnfs, a mount operation is divided into
+two steps.
+<ul>
+<li>The requesting host/subnet ( nfs client ) is validated (or rejected )
+<li>The requested mountpoint ( virtual mountpoint ) is mapped to an
+    absolute pnfs directory.
+</ul>
+<strong>Remark : </strong>
+<ul>
+<li><em>In the pnfs context the requested mountpoint is a virtual mountpoint
+because it first has to be mapped to a pnfs directory.
+This mapping is done using the hosts/net and groups files.</em>
+<li><em>Although the export configuration is stored in pnfs filesystem files,
+the 'pmountd' doesn't need to access those files via a mounted filesystem.
+In other word, it is not neccessary for the pmountd that the pnfs filesystem
+is mounted.</em>
+</ul>
+<hr>
+<h3>Looking up the nfs client host or subnet</h3>
+<blockquote>
+Whenever an nfs mountrequest arrives, the ip number of the client
+host is converted to a filename representing its
+dotted decimal form. This file is looked up in the 
+pnfs exports directory :
+<blockquote>
+<strong>&lt;pnfsMountpoint&gt;/admin/etc/exports</strong>
+</blockquote>
+If the file doesn't exist, the request is denied.
+Otherwise the file has to contain all the exportable filesystems
+in a syntax described later in this chapter.
+<p>
+With pnfs 3.1.3 not only individual hosts but also all hosts belonging
+to a subnet can be targets of the export facility. The subnet mask
+can be of arbitrary length. The filesyntax looks as follows :
+<blockquote>
+<strong>&lt;netmask&gt;..&lt;netpart&gt;</strong>
+</blockquote>
+Where &lt;netmask&gt; is the netmask and 
+&lt;netpart&gt; the ip number of the subnet. Both quantities have 
+to be specified in their dotted decimal representation.
+These files are scanned from the smallest to the largest subnet
+which means from the largest to the smallest netmask.
+So 255.255.255.0 is checked before 255.255.0.0.
+If the requested mountpoint is not found in the 
+file with the largest fitting netmask the search is NOT continued
+and the request is denied.
+<p>
+<strong>Example</strong>
+<blockquote>
+Assuming the export directory contains three files :
+<ul>
+<li>131.169.42.66
+<li>255.255.255.240..131.169.42.64
+<li>255.255.255.0..131.169.42.0
+</ul>
+The first file is only inspected for requests from 131.169.42.66,
+the second file is responsible for the range 131.169.42.(65-79) 
+except for node 31.169.42.66 and the third file describes the behaviour of the
+full 131.169.42.0 subnet except all nodes in the range 131.169.42.(65-79).
+If, for example,
+the file 131.169.42.66 is empty, the corresponding node 
+is not allowed to mount anything whatever is enabled in the other files.
+</blockquote>
+</blockquote>
+<hr>
+<h3>Virtual mountpoints and mount groups</h3>
+<blockquote>
+After the relevant file in <strong>.../exports</strong> is found,
+it is searched for the requested mountpoint. <p>
+The syntax of the hostfiles, netfiles and groupfiles
+may be an arbitrary combination of one of the following :
+<h4><tt>&lt;virtualMountpoint&gt;  &lt;pnfsDirectory&gt;  &lt;permission&gt;   nooptions</tt></h4>
+<blockquote>
+This form directly maps a &lt;virtualMountpoint&gt; to a pnfs directory.
+The &lt;permission&gt; determins the I/O behaviour and the initial pnfs level.
+The keyword <em>nooption</em> must be specified.
+</blockquote>
+<h4><tt>&lt;virtualMountpoint&gt;  &lt;mountGroup&gt;[:&lt;newVirtualMountpoint&gt;]</tt></h4>
+<blockquote>
+This form redirects the search for &lt;virtualMountpoint&gt; to the 
+mount group &lt;mountGroup&gt;. If &lt;newVirtualMountpoint&gt; is specified,
+the search continues for the virtual mountpoint &lt;newVirtualMountpoint&gt;
+otherwise the inital virtual mountpoint is used. The depth of indirection is
+limited to 8 to avoid endless loops.
+The mountGroup files are expected in <strong>../exports/mountpoints</strong>.
+They must be named after the mount group they represent.
+</blockquote>
+<h4><tt>&lt;virtualMountpoint&gt;  &lt;newVirtualMountpoint&gt;</tt></h4>
+<blockquote>
+This form is identical to the form above except that the current file
+is searched for &lt;newVirtualMountpoint&gt;.
+</blockquote>
+In the latter two forms the &lt;virtualMountpoint&gt; can be the
+wildcard character '*'. The wildcard matches all requested mountpoints.
+<h4>Examples</h4>
+<blockquote>
+<pre>
+<strong>&lt;pnfsMountpoint&gt;/admin/etc/exports/255.255.255.0..131.169.44.0</strong>  :
+
+     |/data           Hermes:/hermes            |   Rule 1
+     |/hermes.users   Generic:/users            |   Rule 2
+     |*               Generic                   |   Rule 3
+     
+<strong>&lt;pnfsMountpoint&gt;/admin/etc/exports/255.255.255.0..131.169.55.0</strong>  :
+
+     |/data           Zeus:/data                |   Rule 4
+     |/zeus.users     Generic:/users            |   Rule 5
+     |*               Generic                   |   Rule 6
+     
+          
+<strong>&lt;pnfsMountpoint&gt;/admin/etc/exports/mountpoints/Hermes</strong>  :
+  
+     |/hermes     /data                                                 |   Rule 7
+     |/data       /0/root/fs/usr/hermes       30    nooptions           |   Rule 8
+       
+<strong>&lt;pnfsMountpoint&gt;/admin/etc/exports/mountpoints/Zeus</strong>  :
+  
+     |/zeus       /data                                                 |   Rule 9
+     |/data       /0/root/fs/usr/zeus         30    nooptions           |   Rule 10
+     
+<strong>&lt;pnfsMountpoint&gt;/admin/etc/exports/mountpoints/Generic</strong>  :
+  
+     |/users        /0/root/fs/usr/desy/users         30    nooptions   |   Rule 11
+     |/tmpPool      /0/root/fs/usr/largePool          30    nooptions   |   Rule 12
+     
+</pre>
+<strong>Result</strong><br>
+<ul>
+<li>All hosts at subnet 44 will get /0/root/fs/hermes when mounting
+    pnfshost:/data, while hosts from subnet 55 will get /0/root/fs/zeus
+    when using the same mountpoint : pnfshost:/data.<br>
+    Subnet 44 uses rules : <strong>1-7-8</strong><br>
+    Subnet 55 uses rules : <strong>4-10</strong><br>
+<li>Both subnets end up with the same directory for the users if they
+    specify pnfshost:/hermes.user for subnet 44 and pnfshost:/zeus.users for
+    subnet 55.<br>
+    Subnet 44 uses rules : <strong>2-11</strong><br>
+    Subnet 55 uses rules : <strong>5-11</strong><br>
+<li>All other mounts are directed to the Generic group from both subnets.
+    So the pnfshost:/tmpPool ends up at /0/root/fs/usr/largePool for both
+    subnets.<br>
+    Subnet 44 uses rules : <strong>2-11</strong><br>
+    Subnet 55 uses rules : <strong>5-11</strong><br>
+</ul>
+</blockquote>
+The examples show that rules can be used to focus and defocus mountpoint
+requests. In addition the indirection with 3.1.3 makes it easier to change
+configurations without modifying all host or net files.
+</blockquote>
+</blockquote>
+</body>
+</html> 

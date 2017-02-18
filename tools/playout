@@ -1,0 +1,103 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+show_go_text() {
+  n=`expr $1 + 1`
+  for c in * ; do
+     if [  -h $c ] ; then continue ; fi
+     if [ ! -d $c ] ; then continue ; fi
+     if [ -z "$html" ] ;then
+        echo "" | awk 'END{
+             for(i=0;i<n;i++)printf "\t"
+             printf "%s",dir
+        }' n=$n dir=$c 
+     else
+        echo "" | awk 'END{
+             printf "<tr>"
+             for(i=0;i<n;i++)printf "<td>"
+             printf "%s",dir
+        }' n=$n dir=$c 
+     fi
+     if [ -f "$c/.template" ] ; then
+       y=`awk '{if($1=="StoreName"){printf "%s\n",$2;exit}
+               }' "$c/.template"`
+       x=`awk '{if($1=="StorageGroup"){printf "%s\n",$2;exit}
+               }' "$c/.template"`
+       printf "  [%s,%s]\n" $y $x
+     elif [ -f "$c/.(tag)(sGroup)" ] ; then
+       awk '{ printf "(%2s)",substr($1,3,2) }' ".(id)($c)"
+       x=`cat "$c/.(tag)(sGroup)"`
+       y=`awk '{if($1=="StoreName"){printf "%s\n",$2;exit}
+               }' "$c/.(tag)(OSMTemplate)"`
+       printf "\t[%s,%s]\n" $y $x
+     else
+       if [ -f ".(id)($c)" ] ; then 
+            awk '{ printf "(%2s)",substr($1,3,2) }' ".(id)($c)"
+       fi
+       printf "\n"
+       cd $c
+       show_go_text $n
+       cd ..
+     fi
+  done
+  n=`expr $n - 1`
+}
+#
+show_go_conv() {
+  n=`expr $1 + 1`
+  for c in * ; do
+     if [  -h $c ] ; then continue ; fi
+     if [ ! -d $c ] ; then continue ; fi
+     echo "if [ ! -d $c ] ; then mkdir $c ; fi" 
+     if [ -f "$c/.template" ] ; then
+       echo "cat >$c/.(tag)(OSMTemplate) <<!"
+       awk '{
+               b=substr($1,1,1);
+               if( ( b== "#" ) || ( b == " " ) || ( b == "" ) )continue ;
+               if($1=="StorageGroup")printf "%s\t-#0\n",$1
+               else print $0
+            }' "$c/.template"
+       echo "!"
+       x=`awk '{if($1=="StorageGroup"){printf "%s\n",$2;exit}
+               }' "$c/.template"`
+       echo "echo $x >$c/.(tag)(sGroup)" 
+       echo "touch $c/.(tag)(OSMPriority)" 
+     else
+       echo "cd $c"
+       cd $c
+       show_go_conv $n
+       cd ..
+       echo "cd .."
+     fi
+  done
+  n=`expr $n - 1`
+}
+
+case $1 in 
+  text)  if [ ! -z "$2" ] ; then cd $2 ; fi 
+         show_go_text 0  ;;
+  html)  if [ ! -z "$2" ] ; then cd $2 ; fi 
+         html=1
+         show_go_text 0  ;;
+  convert)  if [ ! -z "$2" ] ; then cd $2 ; fi 
+         show_go_conv 0  ;;
+  *) 
+     echo " usage : playout text <path>"
+     echo " usage : playout html <path>"
+     echo " usage : playout convert <path>"
+   ;;
+esac

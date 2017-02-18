@@ -1,0 +1,203 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+exports=/pnfs/fs/admin/etc/exports
+usr=/pnfs/fs/usr
+#
+usage() {
+  echo " Usage : pmount add <host> <mountpoint> "
+  echo " Usage : pmount remove <host> <mountpoint>|all "
+  echo "         pmount show hosts "
+  echo "         pmount show mountpoints "
+  echo "         pmount show host <hostname>"
+  echo "         pmount show mountpoint <mountpoint>"
+  return 0
+}
+show_go() {
+  n=`expr $1 + 1`
+  for c in * ; do
+     if [ ! -d $c ] ; then continue ; fi
+     id=`cat ".(id)($c)" | awk '{ printf "%s",substr($1,3,2) }'`
+     echo "" | awk 'END{
+          printf "<tr>"
+          for(i=0;i<n;i++)printf "<td>"
+          printf "%s(%s)\n",dir,id
+     }' n=$n dir=$c id=$id
+     if [ -f "$c/.(tag)(sGroup)" ] ; then
+       x=`cat "$c/.(tag)(sGroup)"`
+       y=`awk '{if($1=="StoreName"){printf "%s\n",$2;exit}
+               }' "$c/.(tag)(OSMTemplate)"`
+       printf "<br>[%s,%s]\n" $y $x
+     else
+       cd $c
+       show_go $n
+       cd ..
+     fi
+  done
+  n=`expr $n - 1`
+}
+show_layout() {
+   cd /pnfs/fs/usr/zeus
+   show_go 0
+
+
+}
+getIP() {
+   nslookup $1 2> /dev/null |\
+   awk '{ 
+           if( $1=="Address:" ){
+             i++ 
+             if( i == 2 ){ printf "%s\n",$2 ; exit } 
+           }
+        }'
+
+}
+
+rm_mount() {
+  if [ $# -lt 2 ] ; then usage ; exit 0 ; fi
+  host=$1
+  mountp=$2
+  hostpath=$exports/$host
+#
+  if [ ! -f $exports/$host ] ; then
+    echo " Host $host not found in export list"
+    exit 1
+  fi
+#  if [ $# -eq 1 ] ; then
+#     if [ -s $exports/$host ] ; then
+#         echo "Sorry, this mountgroup is not yet empty"
+#         exit 1
+#     else
+#         rm -f $exports/$host >/dev/null 2>/dev/null
+#         exit 0
+#     fi
+#  fi
+  if [ "$mountp" = "all" ] ; then
+    if [ -h "$hostpath" ] ; then
+      link=`ls -l $hostpath 2>/dev/null`
+      link=`expr "$link" : ".*-> \(.*\)"`
+      link=`basename $link`
+      rm $hostpath $exports/$link
+    else
+      rm $hostpath 2>/dev/null
+    fi
+  else
+    imp=`awk '{if(mp==$1){printf "%s\n",$2 ;exit}}' \
+        mp=$mountp $exports/$host`
+    if [ -z "$imp" ] ; then
+      echo " Mountpoint $mountp not exported for $host'"
+      exit 1
+    fi
+    tmp=/tmp/pmount-$$
+    awk '{ if(mp!=$1)print $0 ; }' mp=$mountp $exports/$host >$tmp
+    cp $tmp $exports/$host
+    rm $tmp
+  fi
+  
+}
+add_mount() {
+  if [ $# -ne 2 ] ; then usage ; exit 0 ; fi
+  host=$1
+  mountp=$2
+#
+  imp=`awk '{if(mp==$1){printf "%s\n",$2 ;exit}}' \
+      mp=$mountp $exports/mountpoints/*`
+  if [ -z "$imp" ] ; then
+    echo " Mountpoint $mountp in 'mountpoints'"
+    exit 1
+  fi
+  perm=`awk '{if(mp==$1){printf "%s\n",$3 ;exit}}'\
+        mp=$mountp $exports/mountpoints/*`
+
+  if [ -f $exports/$host ] ; then
+    target=$exports/$host
+  else
+    echo " Info : Host $host not yet in export table "
+    ip=`getIP $host` 2>/dev/null
+    if  [ -z "$ip" ] ; then
+       echo " No nameserver entry for $host "
+       exit 1
+    fi
+    echo " Info : Adding $host ($ip) to export table "
+    touch $exports/$ip
+    ln -s $ip $exports/$host
+    target=$exports/$host
+  fi
+  x=`awk '{ if($1==mp)printf "%s\n",$1 }' mp=$mountp $target` 
+  if [ ! -z "$x" ] ; then
+    echo " $mountp already exported for $host "
+    exit 1
+  fi
+  echo "$mountp   $imp  $perm rw,soft" >>$target
+  return
+
+}
+show_mp() {
+if [ $# -lt 1 ] ; then usage ; exit ; fi
+mp=$1
+imp=`awk '{ if(mp==$1)printf "%s\n",$2 }' mp=$mp $exports/mountpoints/*`
+if [ -z "$imp" ] ; then
+  echo " Mountpoint $mp not found in database"
+  exit 1
+fi
+echo "$mp -> $imp "
+cd $exports
+for c in * ; do
+  if [ ! -h "$c" ] ; then continue ; fi
+  imp=`awk '{ if(mp==$1)print $0 }' mp=$mp $c `
+  if [  -z "$imp" ] ;then continue ; fi 
+  echo $c $imp |  awk '{ printf "%-10s %2s %s\n",$1,$2,$4 }'
+done    
+ 
+}
+show_host() {
+if [ $# -lt 1 ] ; then usage ; exit ; fi
+while [ ! -z "$1" ]  ; do
+ host=$1
+ if [ ! -f $exports/$host ] ; then
+   echo " Host $host not found in export list "
+   exit 1
+ fi
+ echo " ------------ $host ------------------ "
+ awk '{ printf " %-10s %2s %s\n",$1,$3,$2 }' $exports/$host
+ shift
+done
+ return 0 
+
+}
+case $1 in 
+   add) shift 1 ; add_mount $* ;;
+   remove) shift 1 ; rm_mount $* ;;
+   showxxx) shift 1 ; show_layout $* ;;
+   test) shift 1 ; getIP $* ;;
+   show) case $2 in 
+           mountpoints) 
+            awk '{ printf "%-10s %2.2s %s\n",$1,$3,$2}' $exports/mountpoints/*
+            ;;
+           hosts)
+            cd $exports
+            for c in * ; do
+              if [ ! -h "$c" ] ; then continue ; fi
+              echo "$c"
+            done
+            ;;
+           host) shift 2 ; show_host $* ;;
+           mountpoint) shift 2 ; show_mp $*  ;;
+           *)   usage ;;
+         esac ;;
+   *)   usage ;;
+esac

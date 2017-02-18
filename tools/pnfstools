@@ -1,0 +1,157 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+setup=/usr/etc/pnfsSetup
+#
+usage() {
+   echo " Usage : mdb update "
+   echo " Usage : mdb enable  <dbName>"
+   echo " Usage : mdb disable <dbName>"
+   echo " Usage : mdb reserve <dbID> [<dbName> <comment>]"
+   echo " Usage : mdb create <dbName> <full DBpath>"
+   echo " Usage : mdb add    <dbName> <full DBpath>"
+   echo " Usage : mdb remove <dbName>"
+   echo " Usage : mdb status"
+   echo " Usage : mdb showall"
+   echo " Usage : mdb setbinary <dbName> <dbServerBinaryID>"
+   echo " Usage : mdb backup <dbName>"
+
+   return 0
+}
+# -----------------------------------------------------------------------
+#
+#                    the general setup
+#
+#  check for existence of our setup
+#
+setup=/usr/etc/pnfsSetup
+#
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find $setup "
+   exit 1
+fi
+. $setup
+
+if [ -z "$shmkey" ] ; then echo " shmkey not found in $setup " ; exit 1 ; fi
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup " ; exit 1 ; fi
+if [ -z "$database" ] ; then echo " database not found in $setup " ; exit 1 ; fi
+
+tools=$pnfs/tools
+shmcom=$tools/shmcom
+db=$database
+
+#
+#              some tools
+# --------------------------------------------------------------------------
+#
+checkroot() {
+
+   user=`id | grep "0(root)"`
+   if [ -z "$user" ] ; then
+#     echo " Sorry, must be root "
+      return  1
+   fi
+}
+platform(){
+
+   os=`uname -s`
+   if [ "$os" = "Linux" ] ; then
+      MYPS="ps -ac"
+      MYPS2="ps -ax"
+   elif [ "$os" = "IRIX" ] ; then
+      MYPS="ps -ed"
+      MYPS2="ps -fp"
+   elif [ "$os" = "SunOS" ] ; then
+      rev=`uname -r | awk -F. '{ print $1 }'`
+      if [ $rev -lt 5 ] ; then
+#        echo " Sorry can't run with OS : $os ; Rev : $rev"
+         return 1
+      else
+         MYPS="ps -eA"
+         MYPS2="ps -fp"
+      fi
+   else
+#      echo " Sorry can't run with OS : $os"
+       return 1
+   fi 
+   return 0
+}
+#
+# ---------------------------------------------------------------------
+#            more setup
+#
+platform  
+if [ $? -ne 0 ] ; then
+  echo " Sorry, can't run on `uname -a`"
+  exit 1
+fi
+#
+# ---------------------------------------------------------------------
+#           more tools
+#
+#C
+#C    checkProc  <processName>
+#C
+checkProc() {
+
+   $MYPS | awk '{ if($NF==key)printf "%s ",$1; }'  key=$1 -
+
+}
+#C
+#C   stopProc  <procNAME> <timeout> [kill]
+#C
+stopProc() {
+
+  pid=`checkxxx $1`
+  if [ ! -z "$pid" ] ; then 
+     kill -TERM $pid
+     printf " Killing $1 "
+     n=$2
+     while [ $n -gt 0 ] ; do
+       pid=`checkxxx $1`
+       if [ -z "$pid" ] ; then break ; fi
+       printf "."
+       sleep 1
+       n=`expr $n - 1`
+     done
+     if [ -z "$pid" ] ; then
+        printf " Done\n"
+        return 0
+     else
+        if [ -z "$3" ] ; then
+          printf " Failed\n"
+          return 1
+        else
+          kill -9 $pid
+          printf " Killed(-9)\n"
+          return 0
+        fi 
+     fi 
+  fi
+}
+#
+#   db_id_by_name  <db_name>
+#
+db_id_by_name() {
+  
+  if [ -f $db/D-0000 ] ; then
+     awk -F: '{ if( name==$1 ){ print $2 ; exit 0 ; }' name=$1 $db/D-????
+     return 0
+  else
+     return 1
+  fi
+}

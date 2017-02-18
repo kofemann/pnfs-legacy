@@ -1,0 +1,149 @@
+
+req302-1   [ SOLVED ]
+
+   -   under some conditions, an 
+         ln -s <ddd> <dir>
+       were <dir> is an existing directory doesn't 
+       return an error and invalidates some parts inside the
+       directory structure. As a result the directory
+       can't be removed any more. ( the entries field is
+       not zero but there are no entries left. )
+
+req302-2 [SOLVED]  Dec 4
+   -   the maximum amount of data in the 1-7 level 
+       has to be resticted to some kbytes to make (meta)
+       available for users.
+
+req302-3   [ SOLVED ]
+   -   dbserver needs to be a real deamon.
+   
+req302-4
+   -   the inheritance of the tags needs to be 
+       possible even after the subdirectories are created.
+
+req302-5
+   -   we need a better 'mdcreate admin' and all that stuff.
+
+req302-6
+   -   a shutdown should be not possible as long as
+       dbserver are running.
+
+req302-7  [ SOLVED ]
+   -   ln -s .... is possible for non owner
+
+req302-8  [ SOLVED ] Dec 5 11:02
+   -   mkdir .(#)(<name>) produced didn't ckeck for existence of 
+       <name>.
+
+req302-9  [ SOLVED ] Dec 5 11:30
+   -   print the resID for all create operations
+
+req302-10 Dec 9 [ SOLVED ]
+   -   inheritance of tags : overwriting inheritance lets content disappear
+       or the content is just zero, but the filesize is ok.
+         The problem was that setattr changed the attribute of the
+         parent. now the chain is broken and the local attributes e
+         are set. ( now using md2unchainlow )
+
+req302-10 Dec 11 [ SOLVED ]
+   -   still problems with irix and tag inheritance. 
+       now the tag inheritance chain is cracked for
+       each write.
+       !!! append for tags doesn't work ( who cares ?? )
+
+req310-1 Jan 8 1997 [ SOLVED ]
+   -   chmod of level 0 doesn't chmod level 1 which was intended
+       but caused some problems. 
+       So change attribute of level 0 is always propagated to
+       level 1 and 6 ( not 2,3,4,5,7 ) 
+       This is not true for modifying 1 or 6.
+       A touch of 0 will propagate all attributes ( mode mtime atime owner 
+       group ) to level 1 and 6. Again not the other way round.
+       I don't yet know if it makes sense.
+
+req311-1 Jan 15 1998 [ SOLVED ]
+   -   The dbserver stops caused by the semaphore 22 problem is solved now.
+       We are now waiting forever for the dbserver to finish.
+       But we only wait 3 (tunable) seconds for the dbserver to 
+       accept our request.
+
+req311-2 Jav 15 1998
+   -   There are 'nfs handles' around with don't match to any
+       db id. They caused the dbserver to dump core. This 
+       is catched now. But we don't know yet where the
+       handles come from. A message is written to pfnsdLog
+       whenever this happens.
+
+req311-3 Jav 15 1998 [ goodies ]
+   -   sclient is able to 'shutdown' the dbserver.
+       sclient can simulate a long dbserver transaction ( for test only )
+      
+req311-4 Jan 16 1998
+   -   The dbserver now flushed the database whenever
+       a sclient ... disablewrite is received to make
+       consistent backup possible.
+         * dbserver/dbserver.c
+
+req311-5 Jan 16 1998
+   -   If the dbserver is not able to open the database is read/write
+       mode he tries to open it in read/only mode before giving up.
+         * dbserver/dbserver.c
+         * dbfs/md2lib.c
+
+req311-6 Jan 16 1998
+   -   The lookup in fh.c now uses mapDefErrCodes( rc ) ;
+       to map the dbfs errorcode to the nfs error codes. [was a bug]
+       and the printout now adds the md2 error code to the 
+       output line.
+         * nfs/fh.c
+
+req311-7 Jan 16 1998
+   -   Include sys/time.h added to md2types.h to compile on linux.
+         * dbfs/md2types.h
+
+req311-8 Jan 16 1998
+   -   Changing from lookup control to create control via (set) (io) and (size)
+         * dbfs/md2scan.h
+         * dbfs/md2tags.h
+         * dbfs/md2lib.c
+         * dbfs/md3tool.c
+         * dbfs/sprint.c
+         * dbfs/md2types.h
+         * dbserver/dbserver.c
+
+req312-1 Jan 23 1998
+   -   Tag behaviour is clearer not. Couldn't find any inconsitencies
+       any more. Even the inodes of inherited tags are correct now.
+
+req312-2 Jan 23 1998
+   -   Linux produces a logmessage in /var/adm/syslog when
+       .(nameof) and .(id) are used together. This is caused by
+       using the same inode numbers for all those objects.
+       Won't change that in short terms.
+         
+req312-3 Jan 23 1998
+   -   checkDots and checkTags added to briefly check the
+       bahavious in new versions. Works fine now on 
+       Solaris 2.5.1 , IRIX 6.2 and Linux 2.0.32.
+
+req312-4 Jan 23 1998
+   -   New sclient functions 'sclient exec ... listaccess'
+       produces a list of dbserver functions and their usages
+       together with a timestamp.
+ 
+req312-5 Jan 23 1998
+   -   .(get)(cursor) determins the dirID the dirPERM and
+       the mountID for martin to find the mountpoint.
+req318-1 Oct 20 2001
+   -   To remove entries within the dirData record without being
+       able to specify the name of the entry :
+       scandir.sh returns the position within dirData and
+       scandir rmdirentrypos ... is able to use the position to
+       remove it.
+req318-2 Oct 20 2001
+   -   max length of all 'name' inputs (mkdir, touch, ln ... ) is
+       restricted to 199  characters by the fh.c module.
+       -> sclient can still let the dbserver run into a segv.
+req318-3 Oct 20 2001 
+   -   md2action 'renameHANDLER' supports the #define MV_ALLOWED and
+       MV_DENIED. BUT linux ignores the result of 'rename'.

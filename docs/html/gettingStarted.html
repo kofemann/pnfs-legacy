@@ -1,0 +1,269 @@
+<html>
+<head><title>PNFS : getting started</title>
+</head>
+<body bgcolor=white>
+<h1>Getting started</h1>
+<hr>
+<h3>Unpacking and compiling</h3>
+Untar the distribution package. A subdirectory 
+like <strong>pnfs3.1.&lt;n&gt;</strong> will be created.
+<pre>
+cd pnfs3.1.&lt;n&gt;
+make clean
+</pre>
+The 'make clean' command dermines the OS type and version
+and creates a soft link of ./version to the corresponding
+./version.&lt;os-type&gt; file.
+Now you may customize the ./version file to your needs.
+It mainly needs information about the compiler, the lex
+and where to find the gdbm library. If there is no 
+gdbm on our host installed yet, ./gdb/gdbm-1.7.3 contains
+the gdbm source distribution which has to be compiled prior to
+running make to create the pnfs part.
+To create the binaries run :
+<pre>
+make
+make install
+</pre>
+The exeutables will end up in <strong>tools/&lt;os-type&gt;</strong>.
+<br>
+<h3>Creating the pnfs file system</h3>
+Step by step :
+<ul>
+<li>You need to setup the <a href=#setup>/usr/etc/pnfsSetup</a> file.
+    (see below).
+<li>add the pnfs tools to your path.
+    Something like :
+    <pre>
+    . /usr/etc/pnfsSetup
+    PATH=$PATH:$pnfs/tools
+    </pre>
+<li>Try to find some space on the local disk to hold the
+    first database. Each file or directory entry will occupy about a KBytes.
+<li>Create the first ( admin ) database. 
+    Each database has a name, an ID and the actual gdbm database file.
+    The name of the first database has to be <strong>admin</strong>.
+    <pre>
+    mdb create admin /needSpace/admin
+    </pre>
+    All subsequent databases may have any name ( except 
+    some pnfs <a href=v3.1.4.html#note>keywords</a> ) and can be created
+    in different directories.
+    <br>
+    e.g. :
+    <pre>
+    mdb create user1 /moreSpace/user-db-1
+    </pre>
+    I would recommend not to store user data on the admin database.
+    So at least one additional database is required.
+    <br>
+    At DESY, we are currently running 38 databases of up to 150MB size without
+    observing any performance penalties. Each pnfsd can access each database
+    without interfering with other communications. So, using 
+    multiple database will share the load among the 
+    db processes.
+    <p>
+    The process of creating a link from the admin database to 
+    a different one is described in <a href="basics.html#dblinks">The Basics</a>.
+<li>Start the pnfs processes.
+    <pre>
+    root@watphrakeo:/home/patrick > <strong>pnfs.server start</strong>
+    Shmcom : Installed 8 Clients and 8 Servers
+    Starting database server for admin (/uss/db/info.x/admin) ... O.K.
+    Starting database server for user1 (/uss/db/info.x/user-db-1) ... O.K.
+     Waiting for dbservers to register ... Ready
+    Starting Mountd : pmountd
+    Starting nfsd : pnfsd    
+    </pre>
+<li>Check if the processes has been created.
+    <pre>
+    root@watphrakeo:/home/patrick > <strong>mdb show</strong>
+      ID   Name         Type    Status       Path
+    ----------------------------------------------
+      0    admin         r     enabled (r)   /uss/db/info.x/admin
+      1    user1         r     enabled (r)   /uss/db/info.x/user-db-1
+    </pre>
+    The <em>(r)</em> states that the corresponding database server is
+    running.
+    To create new databases use the 'mdb create ...' command 
+    and simply run <strong>mdb update</strong> to start the
+    corresponding database server. There is no need to restart the
+    pnfs processes for creating additional databases.
+<li>Mount the pnfs filesystem.
+    <pre>
+    mkdir -p /pnfs/fs
+    mount -o intr,hard,rw localhost:/fs   /pnfs/fs
+    </pre>
+    Make sure you are using the 'localhost:/fs' mountpoint
+    and not the '&lt;hostName&gt;:/fs' mountpoint.
+    <br>
+    This entry into pnfs allows you to configure the
+    export tables a.s.o. It <strong>can't</strong> be used as the 
+    frontend to the HSM because it allows I/O to the
+    filesystem which you certainly don't want.
+    See <a href=noio.html>No Io</a> for further information
+    about I/O and no I/O.
+<li>From here on the system is configured and can be used
+    following the description in <a href=export.html>export</a>.
+    But for convenience there is a tool to modify the
+    export table : <strong>pmount</strong>
+    This tool assumes that the 'localhost:/fs' is mounted on
+    '/pnfs/fs'. If you need to change this path
+    you have to modify the 
+    <strong>exports=/pnfs....</strong> line with in <strong>pmount</strong>
+    as well.
+<li>Prepare the regular mountpoints. (Example only)
+    <pre>
+    cd /pnfs/fs/admin/etc/exports
+    mkdir mountpoints
+    cd mountpoints
+    cat >Generic
+    /admin   /0/root/fs/admin   0   nooptions
+    /usr     /0/root/fs/usr    30   nooptions
+    ^D   
+    </pre>
+    /admin and /usr can now be exported.
+    /usr is a HSM aware mountpoint. No I/O is allowed.
+    Any number of mountpoints may be added here.
+    Note that the regular clients must only mount filesystems
+    exported with the <strong>30</strong> option( <a href=noio.html>NOIO</a>).
+<li>Declare a host to be a regular pnfs client. EXPORT( HSM usage only,
+    I/O is not allowed )
+    <pre>
+    root@watphrakeo:/pnfs/fs/admin/etc/exports > <strong>pmount add host /usr</strong>
+     Info : Host knossos not yet in export table
+     Info : Adding knossos (131.169.87.223) to export table
+    </pre>
+    From now on knossos may mount &lt;pnfsHostName&gt;:/usr to whatever
+    it likes.
+<li><strong>REMARK</strong> NFS-2 isn't something which can be
+    called a secure protocol. So, to reduce the possible misuse 
+    pnfs disallows remote 'root' access by default.
+    This behaviour can be changed on host basis creating
+    a file within the already existing 
+    <strong>/pnfs/fs/admin/etc/export/trusted</strong> directory.
+    The filename must be the decimal dotted representation of the
+    ip number of the host you want to grant root access.
+    The file must contain a 15. e.g. :
+    <pre>
+    cd /pnfs/fs/admin/etc/exports/trusted
+    cat 15 >131.169.1.221
+    </pre>
+    131.169.1.221 can now become root on the pnfs filesystem.
+    <strong>Usually there should be no need to do this.</strong>
+</ul>
+<hr>
+<a name=setup>
+<h3>The /usr/etc/pnfsSetup File</h3>
+<blockquote>
+When starting pnfs, the pnfsd and the pmountd assume to find
+the configuration information in <strong>/usr/etc/pnfsSetup</strong>.
+A sample setupfile can be found in the root directory of the
+distribution. The file contains one key value pair per line,
+separated by an equals sign. The meaning of most of the
+keys is discussed below.
+Keys which are not mentioned in this list can be
+taken from the example file and need not to be modified.
+<table border=1>
+<tr><th>Key</th><th>meaning</th></tr>
+<tr><th>shmkey</th>
+<td>
+The key of the shared master shared memory area. You  may take
+any, as long as no other application wants to make use of the
+same key. (The default is set to '1122' ).
+</td>
+<tr><th>shmclients</th>
+<td>
+The maximum number of clients which needs access to the
+shared memory area. The rule of thumb 
+'number of pnfsd processes' + 1 ( for the pmountd ) +
+'number of admin tools running simultaniously'.
+So if <strong>pnfscopies=4</strong>, <strong>shmclients=8</strong>
+should be fine.
+</td>
+<tr><th>shmservers</th>
+<td>
+Must be larger then the largest database ID. If only the
+pnfs admin tools are used to add databases, this is essentially the
+number of databases. To avoid unnesseccary restarts of the
+pnfs system, the number should be sufficiently large to cover
+the near futur plans concerning database groth.
+</td>
+<tr><th>pnfs</th>
+<td>
+Is the full path of the pnfs root directory. 
+$pnfs/tools needs to contain the pnfs tools and the links to the binaries.
+This path usually looks like <strong>/x...x/pnfs3.1.&lt;n&gt;</strong>
+</td>
+<tr><th>database</th>
+<td>
+Is the full path of an existing directory where pnfs
+stores information about its databases. It doesn't need 
+much space and only contains ascii files which point to 
+the actual gdbm database.
+</td>
+<tr><th>trash</th>
+<td>
+Is the full path of a directory where pnfs provides information
+about files which have been deleted from pnfs.
+The connected HSMs need those information to remove the
+files from the HSM database ( or from tape).
+Pnfs assumes to find subdirectories within $trash where
+it can copy the different file levels into. The size of the
+directory highly depends on the number of remove operations
+and the time interval this directory is scanned to 
+synchronize the HSM. ( see <a href=remove.html>remove</a> )
+</td>
+<tr><th>pnfscopies</th>
+<td>
+Number of copies of the pnfsd deamon to be started.
+<strong>shmclients</strong> must exceed this number by
+at least 'two'.
+</td>
+<tr><th>hardlinks</th>
+<td>
+Can be <strong>yes</strong> or <strong>no</strong> depending on
+wether pnfs should support hardlinks or not. The disadvantage of
+hardlinks is that there is no defined path back to the root.
+So, disabling hardlinks allows  you to get the filepath from
+an object only knowing its pnfsid(=inode).
+</td>
+<tr><th>netmask</th>
+<td>
+The ip netmask of you site. ( class B = 16 , class C = 8 ).
+</td>
+<tr><th>levelmask</th>
+<td>
+A sequence of 8 <strong>0</strong> or <strong>-1</strong>
+separated by ':'.
+The first number has to be a <strong>0</strong>. Each number corresponds
+to a pnfs file level and determines if the specified level should 
+belong to the user ( uid, gid .. ) or should belong to 'root'.
+The way it is configured highly depends on the HSM system  
+you intend to use.
+</td>
+<tr><th>pmountdLog<br>dbserverLog<br>pnfsdLog</th>
+<td>
+Points to the full pathname of the corresponding
+log files. <strong>dbserverLog</strong> should point to
+<strong>/dev/null</strong> in an production environment
+because it still produces large amounts of debug output
+which can't be switched off. <strong>pmountdLog</strong>
+contains the mounts and dismounts. <strong>pnfsdLog</strong>
+should be configured with <strong>pnfsdLevel=5</strong>
+to report the modifications only. See <a href=logformat.html>
+logformat</a> for more information.
+</td>
+<tr><th>pnfsdLevel<br>pmountdLevel<br>dbserverLevel</th>
+<td>
+These numbers determine the output level for the three deamons.
+Currently only pnfsdLevel is recognized and should be set
+to <strong>5</strong> to report the modifications only.
+The  smaller the number the more info you will get.
+</td>
+
+</table>
+</blockquote>
+<hr>
+</body>
+</html> 

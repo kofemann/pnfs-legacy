@@ -1,0 +1,91 @@
+<html>
+<head><title>The pnfs logfile format</title>
+</head>
+<body bgcolor=white>
+<h1>The PNFSD Logfile Format</h1>
+<h4>The line layout</h4>
+<blockquote>
+Each line in the pnfsd logfile has a similar basic format.
+They start with
+<pre>
+&lt;date&gt; &lt;time&gt; &lt;ClientIP&gt;-&lt;UID&gt;-&lt;GID&gt; - &lt;command&gt        
+</pre>
+followed by the neccessary argument for that command and they all end 
+with the database return code in brackets followed by the
+nfs return code after the arrow.
+<pre>
+(&lt;database rc&gt;) -&gt; &lt;nfs rc&gt;
+</pre>              
+The database return codes are defined in dbfs/md2types.h and the 
+nfs return code in the corresponding rfc. There is only one exception.
+The nfs return code (-222) indicates the request was not answered.
+This return code is used to make the client wait for a resource without
+blocking all the <strong>pnfsd's</strong> by the clients retries.
+</blockquote>
+<h4>The nfs handle</h4>
+<blockquote>
+The most important argument type, which is used by all requests, is the
+<strong>nfs handle</strong>. 
+<pre>
+&lt;<a href=basics.html>PnfsID</a>&gt;-&lt;Pnfs Permission&gt;
+</pre>
+The PnfsID is the object ID the the pnfs database.
+The <strong>pnfs permission</strong> contains the information 
+about the current I/O mode and requested PNFS Layer of the
+object. Let the last two digests of the permission be &lt;m&gt;&lt;l&gt;, the
+&lt;l&gt; specifies the layer, which can be 0...7.
+If &lt;m&gt; is zero I/O is enabled otherwise disabled for
+level zero.
+</blockquote> 
+<h4>The commands in detail</h4>
+<blockquote>
+<strong>lookup</strong>
+  <blockquote>
+  <pre>
+  lookup dir &lt;dir handle&gt; name  &lt;object name&gt; : &lt;result ID&gt; &lt;attributes&gt;
+  </pre>
+  The attributes contain the type(t), the mode(m) and the inode(i) of the result object.
+  </blockquote>
+<strong>create</strong>
+  <blockquote>
+  <pre>
+  create dir &lt;dir handle&gt; name  &lt;object name&gt; &lt;attributes&gt; : &lt;result ID&gt; 
+  </pre>
+  The attributes contain the 
+  user id (uid) , the group id (gid), the size, the mode bits 
+  and the last access and last modification times.
+  </blockquote>
+<strong>write</strong>
+  <blockquote>
+  <pre>
+  write &lt;object handle&gt; &lt;offset[hex]&gt; &lt;length[hex]&gt;
+  </pre>
+  </blockquote>
+<strong>read</strong>
+  <blockquote>
+  <pre>
+  read &lt;object handle&gt; &lt;offset[hex]&gt; &lt;length[hex]&gt;
+  </pre>
+  </blockquote>
+<strong>setattr</strong>
+  <blockquote>
+  <pre>
+  setattr &lt;object handle&gt; &lt;attributes&gt;
+  </pre>
+  The attributes contain the 
+  user id (uid) , the group id (gid), the size, the mode bits
+  and the last access and last modification times.
+  </blockquote>
+<strong>getattr</strong>
+  <blockquote>
+  <pre>
+  setattr &lt;object handle&gt; &lt;attributes&gt;
+  </pre>
+  The attributes contain the 
+  type (t ), mode (m), size (s) , inode (i) as well as the
+  creation, modification and access time (cmat).
+  </blockquote>
+
+</blockquote>
+</body>
+</html>

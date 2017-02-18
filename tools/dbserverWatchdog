@@ -1,0 +1,64 @@
+#!/bin/sh
+#
+# Copyrighted as an unpublished work.
+# (c) Copyright 1996,1997,1998 DESY Hamburg DMG-Division
+# All rights reserved.
+#
+#
+# RESTRICTED RIGHTS
+#
+# These programs are supplied under a license.  They may be used,
+# disclosed, and/or copied only as permitted under such license
+# agreement.  Any copy must contain the above copyright notice and
+# this restricted rights notice.  Use, copying, and/or disclosure
+# of the programs is strictly prohibited unless otherwise provided
+# in the license agreement.
+#
+#
+setup=/usr/etc/pnfsSetup
+#
+#  check for existence of our setup
+#
+#
+#if [ $# -gt 0 ] ; then exit 0 ; fi
+#
+#
+if [ ! -f $setup ] ; then
+   echo " Sorry, can't find setup file $setup " 
+   exit 1
+fi
+#
+. $setup
+#
+if [ -z "$shmkey" ] ; then echo " shmkey not found in $setup "  ; exit 1 ; fi
+if [ -z "$pnfs" ] ; then echo " pnfs not found in $setup "  ; exit 1 ; fi
+if [ -z "$database" ] ; then echo " database not found in $setup "  ; exit 1 ; fi
+#
+TOOLS=$pnfs/tools
+#
+# so in general the heartbeat is allowed by the setupfile.
+# here we split the code into the hour day and minute 
+# heartbeat. They may be disabled seperatly be lockfiles
+# in $database/lock/heartbeat.<interval>
+#
+#
+SHMCOM=$TOOLS/shmcom
+#
+if [ ! -x $SHMCOM ] ; then echo " $SHMCOM not executable "  ; exit 1 ; fi
+
+# save the shmcom status in case there is something wrong
+#
+$SHMCOM show $shmkey
+if [ $? -ne 0 ] ; then exit 1 ; fi
+
+MDB=$TOOLS/mdb
+if [ ! -x $MDB ] ; then echo " $MDB not exec.  " ; exit 1 ; fi
+
+UPDATE=`$MDB update `
+if [ ! -z "$UPDATE" ] ; then
+   echo ""
+   echo " The update command sayed  ... "
+   echo $UPDATE
+   exit 4
+fi
+exit 0

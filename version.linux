@@ -1,0 +1,36 @@
+CC=gcc
+LEX=/usr/bin/flex
+AR=/usr/bin/ar
+RANLIB=/usr/bin/ranlib
+VERSION=V3.1.9
+MTYPE=linux
+POSTGRES=db_psql-hash.o
+#PQLIB=-L/diska/opt/pgsql8/lib -lpq
+EXTRA=-DMD_FLAGS_INHERIT -Wall -D_FILE_OFFSET_BITS=64
+TIMEOUTS=-DPOST_TIMEOUT=3 -DSCL_CRITICAL_TIMEOUT=5 -DNO_ANSWER_ON_TIMEOUT
+VCFLAGS= -g -Dsunos  -D_LITTLE_ENDIAN -DUSE_FLEX -Dhonour_gids  -DMV_ALLOWED ${TIMEOUTS} ${EXTRA}
+#VCFLAGS=-g -Dsunos -DDEBUG -D_LITTLE_ENDIAN -DUSE_FLEX -Dhonour_gids  -DMV_ALLOWED ${TIMEOUTS} ${EXTRA}
+#
+#   -DSCL_CRITICAL_TIMEOUT=60
+#   -DNO_ANSWER_ON_TIMEOUT
+#   -DPOST_TIMEOUT=60
+#
+UCBLIB=
+RPCSOCLIB=
+#GDBASE=-lgdbm
+GDBASE=-I/usr/include/postgresql -lpq -lkrb5 -lcrypt -lssl -lcrypto -ldes425 -lkrb5 -lk5crypto -lkadm5srv -lgssapi_krb5 -lcom_err -lresolv
+# GDBASE=-static -L/opt/pgsql/lib -lpq -lcrypt -lssl -lresolv
+GDBASEINC=-I/usr/include/postgresql
+OBJECTS=linux
+#
+# db_gdbm-journal-easy.o db_gdbm-hash.o db_gdbm-easy.o db_dynamic.o
+#
+#db_impl=db_gdbm-hash.o
+db_impl=${POSTGRES}
+#db_impl=db_dynamic.o
+#
+#  Platform specific 64-bit freopen() command.
+#
+# For GNU/Linux, we define _FILE_OFFSET_BITS=64 above and use
+# the standard freopen() command.
+FREOPEN64=freopen

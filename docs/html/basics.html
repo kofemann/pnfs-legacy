@@ -1,0 +1,213 @@
+<html>
+<head><title>The pnfs basics</title>
+</head>
+<body bgcolor=white>
+<h1>The Pnfs Basics</h1>
+<h3>The pnfsid</h3>
+<blockquote>
+Each object in the Pnfs Namespace owns a unique ID.
+This ID consists of 96 bits. The highest two bytes
+specify the database ID and the lowest three bits
+specify whether the object is virtual or persistent.
+All objects which actually reside in one of the
+databases must have the last three bits zero.
+The result is that a system can't hold more then 
+64K of databases and one database can not have more
+then 2 to the power of 77 entries.
+PnfsIDs are not reused.
+</blockquote>
+<h3>How to get the pnfsID</h3>
+<blockquote>
+The pnfsID of a file or a directory inside pnfs
+can by obtained by reading from
+<strong>.(id)(&lt;ObjectName&gt;)</strong> were
+&lt;ObjectName&gt; is the name of the file or directory.
+This syntax only is valid if the object resides in the
+current working directory or if specified as last item
+of the path string.
+<h5>Example</h5>
+<blockquote>
+<pre>
+cd /pnfs/fs/usr/patrick
+touch waste
+cat .(id)(waste)
+
+or
+
+cd /tmp
+touch /pnfs/fs/usr/patrick/waste
+cat /pnfs/fs/usr/patrick/.(id)(waste)
+</pre>
+</blockquote>
+</blockquote>
+<h3>How to get the path from the pnfsID</h3>
+<blockquote>
+Generally it's not possible to get the full path
+of a given pnfsID because the full path depends on the
+mountpoint, and the mountpoint is not known by the
+nfs server. But there is a way to obtain the 
+path of the pfnsID seen from the database itself.
+The path has to be requested step by step.
+First you need to get the objectname itself.
+The name is the result of reading from 
+<strong>.(nameof)(&lt;pnfsID&gt;)</strong>.
+Now you need the pnfsID of the parent directory.
+This ID is only defined because pnfs doesn't allow
+hard links. To get the parent pnfsID read from
+<strong>.(parent)(&lt;pnfsID&gt;)</strong>.
+Now you can get the name of the parent directory by
+using (nameof) of the parentDirectoryID, and so forth.
+There is a tools called <strong>pathfinder</strong>
+which follows exactly this procedure. The printout is
+shown in the example below. First it iterates down to the
+database root and then it assembles the full path.
+This path of course doesn't exist on a host, it is the
+way the database sees the world. To map it to the
+local mounted condition, you need to know the
+pnfsID where the mount starts. See the next section
+for that.
+<h5>Example</h5>
+<blockquote>
+<pre>
+# cd /pnfs/fs/usr/usr/patrick
+# touch waste
+# pathfinder waste      
+000100000000000000015700 waste
+000100000000000000015220 patrick
+000100000000000000001060 usr
+000000000000000000001080 usr
+000000000000000000001040 fs
+000000000000000000001020 root
+000000000000000000001000 -
+000000000000000000000100 -
+000000000000000000000000 -
+/root/fs/usr/usr/patrick/waste
+#
+</pre>
+</blockquote>
+</blockquote>
+<h3>How to get the current position ( version >= 3.1.2 )</h3>
+<blockquote>
+The current position inside pnfs is defined
+by the pnfsID and pnfs Permission of the
+current directory and the pnfsID for the
+mount. Those three values can be read
+from 
+<stong>.(get)(cursor)</strong>.
+See the example for the format.
+If you compare the <strong>mountID</strong>
+with the list from <strong>pathfinder</strong>
+you will find the point where the path of pnfs
+ends and the local path starts. 
+<h5>Example</h5>
+<blockquote>
+<pre>
+# pwd
+/pnfs/fs/usr/usr/patrick
+# cat .(get)(cursor)
+dirID=000100000000000000015220
+dirPerm=0000001400000000
+mountID=000000000000000000001040
+# 
+
+</pre>
+</blockquote>
+</blockquote>
+<h3>How to set the size of a file ( version >= 3.1.2 )</h3>
+<blockquote>
+The size of a fileentry which will only be used as a reference to
+a tapefile can be set by the .(fset) command.
+The file has to exist and must have zero bytes.
+Let's say the filename is &lt;filename&gt; then the creation
+of <strong>.(fset)(&lt;filename&gt;)(size)(&lt;size&gt;)</strong>
+will set the size of &lt;filename&gt; to &lt;size&gt; bytes.
+In a shell script touch will do and in an application 
+you need to open the file with O_CREAT.
+Trying to change the size with a second open or create will
+be silently ignored. To change the filesize the pseodofile
+<strong>.(fset)(&lt;filename&gt;)(size)</strong> has to be removed
+first.
+<h5>Example</h5>
+<blockquote>
+<pre>
+# pwd
+/pnfs/fs/usr/usr/patrick
+# touch waste
+# touch .(fset)(waste)(size)(123456) 
+# ls -l waste
+-rw-r--r--    1 root     sys       123456 Jan 22 18:28 waste
+# touch .(fset)(waste)(size)(123)   
+# ls -l waste                   
+-rw-r--r--    1 root     sys       123456 Jan 22 18:28 waste
+# rm .(fset)(waste)(size)
+# ls -l waste           
+-rw-r--r--    1 root     sys            0 Jan 22 18:28 waste
+# touch .(fset)(waste)(size)(123)
+# ls -l waste                   
+-rw-r--r--    1 root     sys          123 Jan 22 18:28 waste
+# 
+
+</pre>
+</blockquote>
+</blockquote>
+<a name=#dblinks>
+<h3>How to create links between databases</h3>
+<blockquote>
+When mounting the pnfs filesystem the first time, there is
+only one entry into the system (/pnfs/fs) which resides on the
+<strong>admin</strong> database. To make use of other
+databases there must be link created from the admin to the 
+new one. This link can be produced, using the standard unix
+<strong>mkdir</strong> command.
+<pre>
+<strong>Syntax : mkdir .(&lt;databaseId&gt;)(&lt;directoryName&gt;) </strong>
+</pre>
+<br><strong>REMARK : </strong> Eventually this mkdir command returns
+some error like <em>Directory already exists</em>. Nevertheless, the
+directory has been created sucessfully on the correct database.<br>
+The subdirectory &lt;directoryName&gt; will  now point to the
+database with the ID &lt;databaseId&gt;.
+Use <strong>mdb show</strong> to determine the databaseIDs.
+<br>Although it is possible to create these links from each database to
+each other database and to create an arbitrary amount of links to 
+each database it is wise to setup the links in a very simple manner,
+mainly one link from the admin database ( /pnfs/fs/usr ) to each
+group database.
+<h5>Example</h5>
+Create a subdirectory for group <strong>hermes</strong> and create a new database
+for this group.
+<blockquote>
+<pre>
+root@watphrakeo:/ > <strong>. /usr/etc/pnfsSetup</strong>
+root@watphrakeo:/ > <strong>PATH=$PATH:$pnfs/tools</strong>
+root@watphrakeo:/ > <strong>mdb create hermes /needSpaceForHermes/hermesDbFile</strong>
+root@watphrakeo:/ > <strong>mdb update</strong>
+ Starting hermes
+root@watphrakeo:/ > <strong>mdb show</strong>
+   ID   Name         Type    Status       Path
+ ----------------------------------------------
+   0    admin         r     enabled (r)   /uss/db/info.x/admin
+   1    user1         r     enabled (r)   /uss/db/info.x/user-db-1
+   2    hermes        r     enabled (r)   /uss/db/info.x/hermesDbFile
+
+#
+#  The ID of the hermes database seems to be <strong>2</strong>.
+#
+root@watphrakeo:/ > <strong>cd /pnfs/fs/usr</strong>
+root@watphrakeo:/ > <strong>mkdir .(2)(hermes)</strong>
+#
+#  check if everything went o.k.
+#
+root@watphrakeo:/ > <strong>cd hermes</strong>
+root@watphrakeo:/ > <strong>touch waste</strong>
+root@watphrakeo:/ > <strong>cat .(id)(waste)</strong>
+000200000000000000001060
+root@watphrakeo:/ >
+</pre>
+<strong>0002</strong>00000000000000001060 indicates that the new directory 
+resides on database <strong>2</strong>.
+</blockquote>
+</blockquote>
+
+</body>
+</html>

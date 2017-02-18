@@ -1,0 +1,116 @@
+<html>
+<head><title>Tags in pnfs</title></head>
+<body>
+<h1>  Directory Tags</h1>
+<hr>
+<pre> Syntax :  .(tag)(&lt;tagName&gt;) </pre>
+<hr>
+Tags in <em><strong>Pnfs</strong></em> are file like objects. All file operations are also
+defined on tags, although they might do thinks you won't expect
+files to do.
+<h3>Limitations</h3>
+<ul>
+<li>The <em> tagName</em> is limited to 62 characters.
+<li>The data content of a tag is limited to 512 bytes.
+    Exceeding this limit during one or more write operations
+    won't produce any kind of error messages, the residual data 
+    is simply lost.
+</ul>
+<h3>Additional behaviour</h3>
+Beyond the well known behaviour of regular files, tags
+provide a set of additional features. 
+While directories usually are only containers of <strong>references</strong>
+to objects, tags really belong to the directory. As a result they can't
+be moved to other directories. As a matter of fact, they can't even be 
+renamed, but this is a totally different story. Whenever a directory is
+created, it inherits all tags belonging to its mother directory.
+Inherited tags are are inherited to new subdirectories.
+A tag which has been created and which has not
+been inherited by creating a subdirectory 
+is called a <strong>Primary Tag</strong> otherwise it's called
+an <strong> Inherited Tag</strong>. The parent tag of the total
+<strong>Tag Chain</strong> is called the <strong>Super Tag</strong> of that chain or
+its members. The idiom <strong>Pseudo Primary Tag</strong> will
+be explained  later in this description.
+The following list summarises the behaviour of tags on the usual nfs
+filesystem operations.
+<h3>Tag Inheritance</h3>
+   A newly created subdirectory will inherit all <em>Primary and 
+    Inherited Tags</em> of its parent directory which exist at the
+    moment of the directory creation. Tags which are created in a directory
+    are not distributed to its subdirectories if those subdirectories already
+    exists at the time the tag is created. So, <em>Tag Inheritance</em> is
+    an action, which only takes place whenever a directory is created, and
+    not when a tag is created.
+<p>All <em>Inherited Tags</em> always have the same name, content and unix
+    attributes as their <em>Super Tag</em>. Changing the content or attributes
+    of the <em>Super Tag</em> will change the content and attributes of all
+    <em>Inherited Tags</em>.
+<h3>Tag I/O operations</h3>
+<p>All read operations which are performed on an <em>Inherited Tag</em> 
+    are actually performed on its <em>Super Tag</em>. 
+    This is different for write operations. A write on an <em>Inherited
+    Tag</em> cracks the <em>tag chain</em> this tag belongs to and
+    makes this tag to a so called <strong>Pseudo Primary Tag</strong>.
+    This <em>Pseudo Primary Tag</em> behaves exactly like a regular
+    <em>Primary Tag</em> except for the remove operation discussed below.
+    It becomes the <em>Super Tag</em> of all subsequent <em>Inherited
+    Tags</em>. The former <em>Super Tag</em> of the <em>Pseudo Primary
+    Tag</em> looses all its influence on the <em>Pseudo Primary Tag</em>.
+<h3>Removing of tags</h3>
+    <strong>Tags can't be removed</strong>. After a tag has been created,
+    it will exist as long as the directory it belongs to does. The filesystem
+    remove or unlink operation perfomes different task on different 
+    tag types.
+    <ul>
+    <li><strong>Primary Tags : </strong> Performing the remove operation
+        on a <em>Primary Tag</em> invalidates this tag and all <em>Inherited
+        Tags</em> in that <em>Tag Chain</em>.
+        An <strong>Invalidated Tag</strong> behaves as if this tag 
+        doesn't exist. All filesystem I/O operations on that tag produce 
+        an "File Not Found" error. BUT all lookup operations ( e.g. ls )
+        will show this tag with a 0 byte content. The inheritance scheme
+        is still active on <em>Invalidated Tags</em>. That means, that
+        a new subdirectory will inherit an invalidated tag. 
+        Each write operation in an <em>Invalidated Tag</em> will revalidate
+        this tag and the whole <em>Tag Chain</em>.
+    <li><strong>Pseudo Primary Tags : </strong> Performing the remove operation
+        on a <em>Pseudo Primary Tag</em> will reinstall the former <em>Tag chain</em>.
+        This tag becomes an <em>Inherited Tag</em> and the <em>Super Tag</em>
+        will be the next higher <em>Primary or Pseudo Primary Tag</em> in the
+        <em>Tag Chain</em>.
+    <li><strong>Inherited Tags : </strong> Performing the remove operation
+        on <em>Inherited Tags</em> doesn't do anything.
+    </ul>
+<h3>Moving of directories</h3>
+    <strong>What happens if a directory, containing <em>Inherited Tags</em>,
+     is moved to some
+     other point in the filesystem hierarchy ?</strong>
+     The original tag chain remains active ( <em>Think about it !</em> )
+     As a result you can never be sure that your parent directory holds the 
+     parent of your tag, which means : 
+     <strong>The <em>Tag Chain</em> needs not necessarily follow the
+     directory hierarchy</strong>.
+
+<h3>ls of tags</h3>
+    A filesystem <strong>readdir (ls)</strong> will
+    not show the tag content of a directory, while 
+    <strong>ls [-l] .(tag)(&lt;tagName&gt;)</strong> will return the
+    attributes of the tag <em>tagName</em>. Reading from <strong>.(tags)()</strong>
+    will return a list of <em>tagNames</em> belonging to the current working
+    directory. So the following sh script will simulate an ls -l *
+    <pre>
+       ls -l    `cat ".(tags)()"`
+    </pre>
+    The <strong>nlink</strong> in the file attributes ( second of ls -l )
+    reflects the current status of the tag.
+    <ul>
+    <li><strong>00 : </strong> Invalidated Primary or Pseudo Primary Tag.
+    <li><strong>01 : </strong> Valid  Primary or Pseudo Primary Tag.
+    <li><strong>10 : </strong> Invalidated Inherited Tag.
+    <li><strong>11 : </strong> Validated Inherited Tag.
+    </ul>
+<hr>
+<strong><address>Patrick Fuhrmann DESY-ZDV (patrick@desy.de)</address></strong>
+</body>
+</html>

@@ -1,0 +1,15 @@
+#
+os=`uname -s`
+if [ "$os" = "Linux" ] ; then
+   MYPS="ps -ac"
+elif [ "$os" = "SunOS" ] ; then
+   rev=`uname -r | awk -F. '{ print $1 }'`
+   if [ $rev -lt 5 ] ; then
+      echo " Sorry can't run with OS : $os ; Rev : $rev"
+   else
+      MYPS="ps -eA"
+   fi
+else
+   echo " Sorry can't run with OS : $os"
+   exit 1
+fi 

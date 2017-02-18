@@ -1,0 +1,28 @@
+   Tags ..
+  ==========
+   A) set attributes (chmod, chgrp ... ) removes tag contents,
+      --> problem solved in md2ModifyUnixAttr by :
+                - changing md2TagUnChainLow, md2SetMostAttr
+                - setting tag size at last
+   B) write group permission not onnered ( reported by fnal )
+      --> not understudden yet
+          no we got it with 3.1.5
+          write used setAttr(size=0,trunate) and setAttr uses
+          the isSetAttrAllowed. Now we distigues between truncate
+          and the other setAttr. 
+   C) "rm primary tag" works fine BUT
+      touch doesn't reproduce previous version BECAUSE
+      tag.size is zero while mst_size is correct.
+   D) | dir A |  ->  | dir B |  ->  | dir C  |
+        cd ...A/B
+        mv C ..
+        rm B
+       makes all tags while have been in C homeless.
+       thay can't be removed or rewritten because
+       the upper link is missing and they are declared
+       inherited.
+   E) 28/7/99  added to 3.1.5  .(getattr)(<pnfsId>) and .(pset)(<pnfsId>)(attr)(<string>)
+      to enable fast change of attributes (mode,uid,gid,atime,mtime)
+      ctime doesn't work yet because its not forseen in md2SetMostAttibutes.
+      I don't know what happen if we added to this routing because
+      the md_no_ctime is nowhere set.

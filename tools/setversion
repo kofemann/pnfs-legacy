@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+base=.
+if [ $# -ne 1 ] ; then
+   echo " USAGE : $0 version  "
+   exit 1
+fi
+vers=`echo $1 | awk '$1~/^[0-9]+\.[0-9]+\.[0-9]+$/ {printf "%s\n",$1} '`
+if [ -z "$vers" ] ; then
+   echo " Syntax Error in version "
+   exit 1
+fi
+if [ ! \( \( -d nfsV$vers \) -a \( -d dbfsV$vers \) \) ] ; then
+   echo " Version $vers doen't exist "
+   exit 1
+fi
+#
+VERSION=V$1
+MACH=`uname -r`
+case $MACH in
+  4.1*) MACH=sunos ;;
+  5.*) MACH=solaris ;;
+  *) echo " Unknown SunOS Revision $MACH" ; exit 0 ;;
+esac
+#
+if [ $MACH = "solaris" ] ; then
+   UCBLIB=/usr/ucblib
+   RPCSOCLIB="-R${UCBLIB} -L/usr/ucblib -lrpcsoc -lsocket -lnsl -lucb"
+fi
+#
+cat >$base/version <<!
+VERSION=$VERSION
+MTYPE=$MACH
+UCBLIB=$UCBLIB
+RPCSOCLIB=$RPCSOCLIB
+!
+#
+rm -f $base/dbfs $base/nfs
+ln -s $base/dbfs$VERSION $base/dbfs
+ln -s $base/nfs$VERSION $base/nfs
+#
+echo " Version set to $VERSION "

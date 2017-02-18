@@ -1,0 +1,37 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "genx", "genx.vcproj", "{8054F69A-2273-405E-BF13-8E38F24A5D03}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests.vcproj", "{581E2019-AAC4-4C90-8226-DB105401794B}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testsnolib", "..\testsnolib\testsnolib.vcproj", "{ED5C0D0E-48F1-4787-A1D4-DD82859471E5}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{8054F69A-2273-405E-BF13-8E38F24A5D03}.Debug.ActiveCfg = Debug|Win32
+		{8054F69A-2273-405E-BF13-8E38F24A5D03}.Debug.Build.0 = Debug|Win32
+		{8054F69A-2273-405E-BF13-8E38F24A5D03}.Release.ActiveCfg = Release|Win32
+		{8054F69A-2273-405E-BF13-8E38F24A5D03}.Release.Build.0 = Release|Win32
+		{581E2019-AAC4-4C90-8226-DB105401794B}.Debug.ActiveCfg = Debug|Win32
+		{581E2019-AAC4-4C90-8226-DB105401794B}.Debug.Build.0 = Debug|Win32
+		{581E2019-AAC4-4C90-8226-DB105401794B}.Release.ActiveCfg = Release|Win32
+		{581E2019-AAC4-4C90-8226-DB105401794B}.Release.Build.0 = Release|Win32
+		{ED5C0D0E-48F1-4787-A1D4-DD82859471E5}.Debug.ActiveCfg = Debug|Win32
+		{ED5C0D0E-48F1-4787-A1D4-DD82859471E5}.Debug.Build.0 = Debug|Win32
+		{ED5C0D0E-48F1-4787-A1D4-DD82859471E5}.Release.ActiveCfg = Release|Win32
+		{ED5C0D0E-48F1-4787-A1D4-DD82859471E5}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

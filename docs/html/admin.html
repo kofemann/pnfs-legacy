@@ -1,0 +1,75 @@
+<html>
+<head><title>Monitoring and Administration with java tools</title>
+</head>
+<body bgcolor=white>
+<hr>
+<h1>This information is no longer up to date.</h1>
+<h1>The java part is in process of being revised.</h1>
+<hr>
+<h1>Monitoring and Administration with Java Tools</h1>
+We are currently in the process of imbedding java into
+our system as administration and monitoring toolkit.
+This should not be seen as a general strategy but as an
+evaluation phase to prove the usability of Java in this
+context.
+<p>
+To use those tools you must have jdk or jre 1.1.3 or higher installed.
+The applications and in future time the applets are assembled in
+$pnfs/tools/jpnfs.jar.
+You need to add this <strong>java archive file</strong>
+to your CLASSPATH variable. The applications are accessible
+in the <strong>jpnfs.apps</strong> package. So to start
+the <strong>pnfsSpy</strong> monitor discussed below,
+do the following :
+<pre>
+. /usr/etc/pnfsSetup
+export CLASSPATH
+CLASSPATH=$pnfs/tools/jpnfs.jar:$CLASSPATH
+</pre>
+Some of the tools may run on any host having 'pnfs' mounted.
+On those hosts you may copy the jpnfs.jar whereever you like 
+and set the CLASSPATH variable accordingly.
+To Start the tool:
+<pre>
+java jpnfs.apps.pnfsSpy
+</pre>
+
+<h3>The pnfsSpy Monitor</h3>
+<blockquote>
+The pnfsSpy monitor may run on any host having any pnfs
+filesystem mounted. The tool assembles statistical informations
+about the number of database accesses and is able to
+display the result as hits/second or total hits since the 
+the tool has been started. There is no further configuration necessary.
+All informations are taken from the pnfs filesystem itself.
+When starting the tool you may specify the mountpoint of
+the pnfs filesystem as first argument:
+<pre>
+java jpnfs.apps.pfnsSpy  /pnfs/fs
+</pre>
+If omitted, pnfsSpy tries to determine the mountpoint by itself.
+If it detects more than one pnfs filesystem it gives you the
+chance to chose one of them.
+<p>After pnfsSpy could verify that the filesystem is pnfs,
+it scans all databases and extracts the active ones.
+The next step is the determination of the filesystems 
+update time of regular file contents and attributes.
+For OSs other then Linux this intervall is in the order of seconds,
+for Linux it may take a minute and more. To run the tool
+it's recommended to descrease the update time to about 5 seconds
+in the mount command.
+pnfsSpy displays a highlighted messages after finding the 
+update intervall. 
+After that one horizontal bar should be displayed per database.
+If the bars don't contain the name of the databases the display
+can be enlarged. If the bars are large enough to hold the
+default font the names should appear. 
+The display is updated with the determined update intervall.
+The Option menu allows an autoscale or a manual scaling of the
+hits/second. Changes in the option menu may only take effect after
+the update intervall has expired.
+The topline of the display shows the parameters currently active.
+</blockqoute>
+
+</body>
+</html>
